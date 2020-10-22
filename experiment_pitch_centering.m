@@ -1,7 +1,7 @@
 % Anantajit Subrahmanya
 % September 20 2020
 %
-% Uses the WaveViewer utility to preprocess all of the subjects in 
+% Preprocess all of the subjects in 
 % cell array of "subject groups". 
 % Returns a datatable that combines all of the subjects into a single cell
 % array that can be pasted into Excel.
