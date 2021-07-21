@@ -1,11 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.stats import norm
+import statsmodels.api as sm
 
 ############ useful constants and shared resources #############
 scales = dict()
 # TODO: ability to set scaling properties from command line instead of source
 scales["deviations-bars"] = ((), (0, 100))
-scales["pitches-histogram"] = ((-750, 750),(0, 0.5))
+scales["pitches-histogram"] = ((-750, 750),(0, 0.75))
+scales["pitches-histogram-bin-size"] = 40
 
 # set default figure size
 plt.rcParams["figure.figsize"] = (20, 14)
@@ -13,18 +16,17 @@ plt.rcParams["figure.figsize"] = (20, 14)
 plt.rc('font', size=16)
 
 # colors
-standard_colors = ["darkolivegreen","firebrick"]
-special_colors = ["darkorange"]
+standard_colors = ["lightsteelblue","peru"]
+special_colors = ["saddlebrown"]
 
 # holds the figure object for later use
 figs = []
+fig_names = []
 
 ############ save figures to output folder ##########
 def save_figs(output_path):
-    i = 1
-    for figure in figs:
-        figure.savefig(output_path + "/fig_" + str(i) + ".png")
-        i = i + 1
+    for i in range(0, len(figs)):
+        figs[i].savefig(output_path + "fig_" + fig_names[i]  + ".png")
 ############ subject tercile arrows ##############
 
 # constants
@@ -39,6 +41,7 @@ def draw_arrow(startx, endx, y, draw_color='black'):
 
 def subject_tercile_arrows(group_list, subject_list, terciles_data):
     figs.append(plt.figure())
+    fig_names.append("subject_tercile_arrows")
     for group_idx in range(0, len(group_list)):
         plt.subplot(1, len(group_list), group_idx + 1)
         plt.title(str(group_list[group_idx]))
@@ -58,7 +61,7 @@ def standard_error(data):
 
 def group_centering_bars(group_list, trial_data):
     figs.append(plt.figure())
-    
+    fig_names.append("group_centering_bars")
 
     plt.title("Average Peripheral Centering (Cents)")
 
@@ -91,6 +94,7 @@ def group_centering_bars(group_list, trial_data):
 ################# group starting deviations bars #####################
 def group_starting_deviations_bars(group_list, trial_data):
     figs.append(plt.figure())
+    fig_names.append("group_starting_deviations_bars")
 
     plt.ylim(0, scales["deviations-bars"][1][1])
 
@@ -124,7 +128,8 @@ def group_starting_deviations_bars(group_list, trial_data):
 ################# group ending deviations bars #####################
 def group_ending_deviations_bars(group_list, trial_data):
     figs.append(plt.figure())
-    
+    fig_names.append("group_ending_deviations_bars")
+
     plt.ylim(0, scales["deviations-bars"][1][1])
 
     plt.title("Average Peripheral Ending Deviations (Cents)")
@@ -167,14 +172,14 @@ def calc_bins(data, target_width):
 
 # plots a histogram giving equal weights to each of the x values. 
 def normalized_hist(data, bins, width=40):
-    hist, bin_edges = np.histogram(data, bins=bins)
-    hist = hist/np.sum(hist)
+    hist, bin_edges = np.histogram(data, bins=bins) 
+    # the area of this should always be 1
+    hist = hist/np.sum(hist) * 100/width
     plt.bar(bin_edges[0:len(bin_edges)-1], hist, width=width, color=standard_colors[0])
-
 
 def group_starting_pitches_histogram(group_list, trial_data):
     figs.append(plt.figure())
-
+    fig_names.append("group_starting_pitches_histogram")
     plt.suptitle("Starting Pitch (Cents)")
 
     # vertical comparison
@@ -185,7 +190,8 @@ def group_starting_pitches_histogram(group_list, trial_data):
         # get the starting pitch
         starting_deviations = trial_data[trial_data[:, 0] == group_idx, 2]
 
-        normalized_hist(starting_deviations, calc_bins(starting_deviations, 40))
+        normalized_hist(starting_deviations, calc_bins(starting_deviations, scales["pitches-histogram-bin-size"]), scales["pitches-histogram-bin-size"])
+        
         plt.xlabel("Pitch (Cents relative to subject median)")
         plt.ylabel("Frequency (Normalized)")
         limits = scales["pitches-histogram"]
@@ -196,7 +202,7 @@ def group_starting_pitches_histogram(group_list, trial_data):
 ######################## group ending pitches histogram #######################
 def group_ending_pitches_histogram(group_list, trial_data):
     figs.append(plt.figure())
-
+    fig_names.append("group_ending_pitches_histogram")
     plt.suptitle("Ending Pitch (Cents)")
 
     # vertical comparison
@@ -207,9 +213,27 @@ def group_ending_pitches_histogram(group_list, trial_data):
         # get the ending pitch
         ending_deviations = trial_data[trial_data[:, 0] == group_idx, 3]
 
-        normalized_hist(ending_deviations, bins=calc_bins(ending_deviations, 40))
+        normalized_hist(ending_deviations, bins=calc_bins(ending_deviations, scales["pitches-histogram-bin-size"]))
         plt.xlabel("Pitch (Cents relative to subject median)")
         plt.ylabel("Frequency (Normalized)")
         limits = scales["pitches-histogram"]
         plt.xlim(limits[0][0], limits[0][1])
         plt.ylim(limits[1][0], limits[1][1])
+
+######################### groups pitches qq plots  #######################
+def group_pitches_qq(group_list, trial_data):
+    # 2x2 subplot
+    
+    fig_names.append("group_pitches_qq")
+    qqfigure, subplots = plt.subplots(nrows=len(group_list), ncols=2)
+    figs.append(qqfigure)
+    
+    
+
+    for group_idx in range(0, len(group_list)):
+        starting_pitch = trial_data[trial_data[:, 0] == group_idx, 2]
+        ending_pitch = trial_data[trial_data[:, 0] == group_idx, 3]
+        starting_fig = sm.qqplot(starting_pitch, ax=subplots[group_idx][0])
+        subplots[group_idx][0].title.set_text(group_list[group_idx] + " Starting Pitch")
+        ending_fig = sm.qqplot(ending_pitch, ax=subplots[group_idx][1])
+        subplots[group_idx][1].title.set_text(group_list[group_idx] + " Ending Pitch")

@@ -53,8 +53,8 @@ def export_line_data(exports, line_data, file_writers):
 # pdb.set_trace()
 
 # TODO provide flexible file interaction using flags and arguments, or input (or both)
-input_filepath = "/storage/Organizations/UCSF/tables-and-figures/addatatable.csv"
-output_filepath = "/storage/Organizations/UCSF/tables-and-figures/"
+input_filepath = "/storage/Organizations/UCSF/tables-and-figures/SD/sddatatable.csv"
+output_filepath = "/storage/Organizations/UCSF/tables-and-figures/SD/"
 
 
 # cleanup filepath for output

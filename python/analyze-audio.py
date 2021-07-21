@@ -5,36 +5,100 @@ import figures as fig
 import matplotlib.pyplot as plt
 import tables
 import tests
+import sys
 
-# TODO: parse input table from file, if provided. Otherwise, request path. 
+# Parse args
+args = sys.argv
 
-verbose = True
+input_path = ""
+output_path = ""
+
+verbose = False
+
+all_figures = True
+plotting_list = []
+
+all_tables = True
+table_list = []
+
+all_tests = True
+test_list = []
+
+show_figures = True
+print_test_results = True
+
+plot_theme = "dark_background"
+
+def help():
+    print("-i --input=INPUT \t\t use INPUT as the input for analysis")
+    print("-o --output=OUTPUT \t\t write all results to the folder at path OUTPUT")
+    print("-v --verbose \t\t enables verbose output mode")
+    print("-f --figures=FIGA FIGB ... \t\t generates figures listed out after the figures flag, separated by spaces")
+
+for argx in range(1, len(args)):
+    arg = str(args[argx])
+    # the only required argument is the path argument
+    if arg == "-i" or arg == "--input":
+        input_path = str(args[argx + 1])
+    elif arg == "-o" or arg == "--output":
+        output_path = str(args[argx + 1])
+    elif arg == "-v" or arg == "--verbose":
+        verbose = True
+    elif arg == "-f" or arg == "--figures":
+        all_figures = False
+        for listable in range(argx + 1, len(args)):
+            if(args[listable] == "-"):
+                break
+            else:
+                plotting_list.append(args[listable])
+    elif arg == "-b" or arg == "--tables":
+        all_tables = False
+        for listable in range(argx + 1, len(args)):
+            if(args[listable] == "-"):
+                break
+            else:
+                table_list.append(args[listable])
+    elif arg == "-t" or arg == "--tests":
+        all_tests = False
+        for listable in range(argx + 1, len(args)):
+            if(args[listable] == "-"):
+                break
+            else:
+                test_list.append(args[listable])
+    elif arg == "--hide-figures":
+        show_figures = False
+    elif arg == "--hide-tests":
+        print_test_results = False
+    elif arg == "--hide":
+        print_test_results = False
+        show_figures = False
+    elif arg == "-h" or arg == "--help":
+        help()
+        exit()
+    elif arg == "--xkcd":
+        plot_theme = "xkcd"
+    elif arg == "--theme":
+        plot_theme = str(args[argx + 1])
+
+if input_path == "":
+    print("An input path is required.")
+    exit()
+
 
 def printv(message):
     if verbose:
         print(message)
 
-printv("Verbose enabled")
-
-# temporary path to speed up development
-input_path = "/storage/Organizations/UCSF/tables-and-figures/analyze_audio.csv"
-output_path = "/storage/Organizations/UCSF/tables-and-figures/post-analysis/"
+printv("verbose enabled")
 
 
-# TODO: streamlined way to select figures, tables, tests as well as plotting options
-plotting_list = ["group-starting-pitches-histogram", "group-ending-pitches-histogram"]
-all_figures = True
+if output_path == "":
+    output_path ="/".join(input_path.split("/")[0:len(input_path.split("/")) - 1]) + "/post-analysis/"
+    printv("Inferring output path:" + output_path)
 
 # we want to move away from the legacy format as fast as we can. As a result, the legacy script only contains one pass. For analysis that requires many passes, we need to use this script.  
-table_list = ["run-stats-marked-tercile"]
-all_tables = False
-
-test_list = []
-all_tests = True
 
 # figures are always saved to disk. show_figures = True will also plot them on this machine
-show_figures = True
-
 
 printv("initialized settings")
 
@@ -163,10 +227,10 @@ printv("table generation complete")
 ######################### PLOTTING ###############################
 printv("plotting figures...")
 
-plt.style.use('dark_background')
-
-# plt.xkcd()
-
+if plot_theme == "xkcd":
+    plt.xkcd()
+else:
+    plt.style.use(plot_theme)
 
 
 if "subject-tercile-arrows" in plotting_list or all_figures:
@@ -187,11 +251,17 @@ if "group-starting-pitches-histogram" in plotting_list or all_figures:
 if "group-ending-pitches-histogram" in plotting_list or all_figures:
     printv("plotting group ending pitches histogram")
     fig.group_ending_pitches_histogram(group_list, trial_data)
+if "group-pitches-qq" in plotting_list or all_figures:
+    printv("plotting group pitches qq plot")
+    fig.group_pitches_qq(group_list, trial_data)
 
 printv("saving figures to disk....")
 fig.save_figs(output_path)
+tests.save_results(output_path)
 printv("done.")
 
 if show_figures:
     plt.show() # show all plots at once after generation
+if print_test_results:
+    tests.print_test_results()
 
