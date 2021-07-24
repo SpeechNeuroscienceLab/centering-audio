@@ -29,11 +29,22 @@ print_test_results = True
 
 plot_theme = "dark_background"
 
+remove_outliers = True
+OUTLIER_STD = 1
+
 def help():
+    print("ARGUMENT OVERVIEW")
     print("-i --input=INPUT \t\t use INPUT as the input for analysis")
     print("-o --output=OUTPUT \t\t write all results to the folder at path OUTPUT")
-    print("-v --verbose \t\t enables verbose output mode")
-    print("-f --figures=FIGA FIGB ... \t\t generates figures listed out after the figures flag, separated by spaces")
+    print("-v --verbose \t\t\t enables verbose output mode")
+    print("-f --figures=FIGNAMES ... \t generates figures listed out after the figures flag, separated by spaces")
+    print("-b --tables=TABLENAMES ... \t generates tables listed out after the tables flag, separated by spaces")
+    print("-t --tests=TESTNAMES ... \t runs tests listed out after the tests flag, separated by spaces")
+    print("--include-outliers \t\t includes outliers")
+    print("--hide-figures \t\t\t disables display of figures upon save to disk")
+    print("--hide-tests \t\t\t disables display of test results upon save to disk")
+    print("--hide \t\t\t\t does not display test results or figures: alias of --hide-figures --hide-tests")
+    print("-h --help \t\t\t prints this help message")
 
 for argx in range(1, len(args)):
     arg = str(args[argx])
@@ -75,10 +86,10 @@ for argx in range(1, len(args)):
     elif arg == "-h" or arg == "--help":
         help()
         exit()
-    elif arg == "--xkcd":
-        plot_theme = "xkcd"
     elif arg == "--theme":
         plot_theme = str(args[argx + 1])
+    elif arg == "--include-outliers":
+        remove_outliers = False
 
 if input_path == "":
     print("An input path is required.")
@@ -147,7 +158,6 @@ printv("reading csv complete")
 trial_data = np.array(trial_data) # trial data is converted to numpy array
 
 terciles_data = []
-peripheral_terciles_data = []
 
 printv("analyzing terciles...")
 
@@ -191,20 +201,76 @@ for group_idx in range(0, len(group_list)):
         # append subject_tercile_data to tercile_data
         if len(terciles_data) <= group_idx:
             terciles_data.append([])
-            peripheral_terciles_data.append([])
 
         terciles_data[group_idx].append(subject_tercile_data)
 
-        # export peripheral trials only
-        peripheral_subject_data = np.mean(terciles_trial_data[terciles_trial_data[:, 7] != 0], axis=0)
-        # delete the tercile number, the starting point and ending point.... not useful at the peripheral tercile level
-        peripheral_subject_data = np.delete(peripheral_subject_data, [2, 3, 7])
-        
-        peripheral_terciles_data[group_idx].append(peripheral_subject_data)
-
-    peripheral_terciles_data[group_idx] = np.array(peripheral_terciles_data[group_idx])
-
 printv("tercile analysis complete")
+
+printv("purging outliers...")
+
+if(remove_outliers):
+    for group_idx in range(0, len(group_list)):
+        # for each group, get the group data
+        outlier_subjects = [];
+        group_tercile_data = terciles_data[group_idx]
+        group_trial_data = trial_data[trial_data[:, 0] == group_idx]
+        # only observe outliers in the peripheral trials
+        observation_terciles = [-1, 1]
+
+        for tercile in observation_terciles:
+            # tercile is the value of which tercile we are looking at. 
+            # calculate the cutoffs
+            tercile_trial_data = group_trial_data[group_trial_data[:, 7] == tercile]
+            mean = np.mean(tercile_trial_data[:, 5])
+            std = np.std(tercile_trial_data[:, 5])
+            tercile_strings = ["lower", "central", "upper"]
+            printv(tercile_strings[tercile + 1] + " tercile starting location:")
+            printv("mean is " + str(mean) + " and std is " + str(std)) 
+
+            for subject_idx in range(0, len(subject_list[group_idx])):
+                # for each subject in the list
+                # get the subject start point average for this tercile 
+                subject_start = np.abs(terciles_data[group_idx][subject_idx][tercile + 1][2])
+
+                if(subject_start > mean + std * OUTLIER_STD or subject_start < mean - std * OUTLIER_STD):
+                    printv("Subject " + subject_list[group_idx][subject_idx] + " from group " + 
+                            group_list[group_idx] + " can be considered an outlier (index " + str(subject_idx) + 
+                            ") due to its " + str(tercile) + " tercile position")
+                    outlier_subjects.append(subject_idx)
+
+        outlier_subjects.sort()
+
+        # actually remove the outlier from trials 
+        for outlier_idx in range(0, len(outlier_subjects)):
+            outlier = outlier_subjects[outlier_idx]
+            # outlier is the index of the outlier in this group
+            # remove from trial_data
+            trials_to_remove = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == outlier)))
+            np.delete(trial_data, trials_to_remove, axis=0)
+
+            # remove from tercile data
+            terciles_data[group_idx].pop(outlier)
+
+            # remove from subject_list
+            subject_list[group_idx].pop(outlier)
+
+            # organize remaining data
+            printv("successfully removed outlier at index " + str(outlier) + " out of " + str(len(subject_list[group_idx])))
+
+            # renumber trial_data
+            for subject_idx in range(outlier, len(subject_list[group_idx])):
+                replacement_mask = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == subject_idx + 1)))
+                trial_data[replacement_mask, 1] = subject_idx
+
+                # renumber terciles_data
+                for tercile_idx in [0, 1, 2]:
+                    terciles_data[group_idx][subject_idx][tercile_idx][1] = subject_idx
+
+            # renumber outlier data
+            for dec in range(outlier_idx + 1, len(outlier_subjects)):
+                outlier_subjects[dec] = outlier_subjects[dec] - 1
+
+printv("Outlier removal complete")
 
 ######################### TESTS ##########################
 printv("running tests...")
@@ -224,6 +290,14 @@ if "run-stats-marked-tercile" in table_list or all_tables:
 
 printv("table generation complete")
 
+
+######################### SET SCALES ###############################
+printv("Setting scales...")
+
+fig.scales["deviations-bars"] = fig.calculate_deviations_limits(group_list, trial_data)
+
+
+printv("Scales set successfully")
 ######################### PLOTTING ###############################
 printv("plotting figures...")
 
@@ -236,12 +310,18 @@ else:
 if "subject-tercile-arrows" in plotting_list or all_figures:
     printv("plotting subject tercile arrows")
     fig.subject_tercile_arrows(group_list, subject_list, terciles_data)
+if "subject-tercile-arrows-with-error" in plotting_list or all_figures:
+    printv("plotting subject tercile arrows with error")
+    fig.subject_tercile_arrows_with_error(group_list, subject_list, trial_data)
 if "group-centering-bars" in plotting_list or all_figures:
     printv("plotting group centering bars")
     fig.group_centering_bars(group_list, trial_data)
 if "group-starting-deviations-bars" in plotting_list or all_figures:
     printv("plotting group starting deviations bars")
     fig.group_starting_deviations_bars(group_list, trial_data)
+if "group-centering-bars-o2" in plotting_list or all_figures:
+    printv("plotting group centering bars (option 2)")
+    fig.group_centering_bars_o2(group_list, trial_data)
 if "group-ending-deviations-bars" in plotting_list or all_figures:
     printv("plotting group ending deviations bars")
     fig.group_ending_deviations_bars(group_list, trial_data)
@@ -251,7 +331,7 @@ if "group-starting-pitches-histogram" in plotting_list or all_figures:
 if "group-ending-pitches-histogram" in plotting_list or all_figures:
     printv("plotting group ending pitches histogram")
     fig.group_ending_pitches_histogram(group_list, trial_data)
-if "group-pitches-qq" in plotting_list or all_figures:
+if "group-pitches-qq" in plotting_list:#TODO: finish qq plot then uncomment #or all_figures:
     printv("plotting group pitches qq plot")
     fig.group_pitches_qq(group_list, trial_data)
 
