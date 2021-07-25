@@ -13,7 +13,7 @@ scales["pitches-histogram-bin-size"] = 10
 # figure generation properties
 scales["figure-figsize"] = (20, 14)
 scales["default-font-size"] = 16
-# set default text size
+scales["qq-outlier-multiplier"] = 2
 
 # colors
 standard_colors = ["lightsteelblue","peru"]
@@ -35,7 +35,7 @@ draw_arrow_height = 0.75
 def draw_arrow(startx, endx, starty, endy, color='black', style='flag'):
     # start at the starting x, and draw a vertical line from y +- height/2
     # then draw two more lines
-    if(style != "minimal"):
+    if(style == "flag"):
         x_points = [startx, startx, endx, startx]
         y_points = [starty - draw_arrow_height/2, starty + draw_arrow_height/2, endy, starty - draw_arrow_height/2]
     if(style == "minimal"):
@@ -361,11 +361,16 @@ def group_ending_pitches_histogram(group_list, trial_data):
 
 ######################### groups pitches qq plots  #######################
 def group_pitches_qq(group_list, trial_data):
-    # 2x2 subplot
-    
+    # metric
+    metric = 2
+
+    # remove outliers 
+    trial_data = trial_data[abs(trial_data[:, metric] - np.mean(trial_data[:, metric])) < scales["qq-outlier-multiplier"] * np.std(trial_data[:, metric]), :]
+
     fig_names.append("group_pitches_qq")
-    qqfigure, subplots = plt.subplots(nrows=len(group_list), ncols=2)
+    qqfigure, subplots = plt.subplots(nrows=len(group_list), ncols=2, figsize=scales["figure-figsize"])
     figs.append(qqfigure)
+    plt.rc('font', size=scales["default-font-size"])
     
     
 

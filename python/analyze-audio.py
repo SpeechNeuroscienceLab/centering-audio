@@ -246,7 +246,7 @@ if(remove_outliers):
             # outlier is the index of the outlier in this group
             # remove from trial_data
             trials_to_remove = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == outlier)))
-            np.delete(trial_data, trials_to_remove, axis=0)
+            trial_data = np.delete(trial_data, trials_to_remove, axis=0)
 
             # remove from tercile data
             terciles_data[group_idx].pop(outlier)
@@ -261,8 +261,6 @@ if(remove_outliers):
             for subject_idx in range(outlier, len(subject_list[group_idx])):
                 replacement_mask = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == subject_idx + 1)))
                 trial_data[replacement_mask, 1] = subject_idx
-
-                printv("renumbered " + str(subject_idx + 1) + " as " + str(subject_idx))
 
                 # renumber terciles_data
                 for tercile_idx in [0, 1, 2]:
@@ -340,7 +338,7 @@ if "group-starting-pitches-histogram" in plotting_list or all_figures:
 if "group-ending-pitches-histogram" in plotting_list or all_figures:
     printv("plotting group ending pitches histogram")
     fig.group_ending_pitches_histogram(group_list, trial_data)
-if "group-pitches-qq" in plotting_list:#TODO: finish qq plot then uncomment #or all_figures:
+if "group-pitches-qq" in plotting_list or all_figures:
     printv("plotting group pitches qq plot")
     fig.group_pitches_qq(group_list, trial_data)
 
