@@ -262,6 +262,8 @@ if(remove_outliers):
                 replacement_mask = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == subject_idx + 1)))
                 trial_data[replacement_mask, 1] = subject_idx
 
+                printv("renumbered " + str(subject_idx + 1) + " as " + str(subject_idx))
+
                 # renumber terciles_data
                 for tercile_idx in [0, 1, 2]:
                     terciles_data[group_idx][subject_idx][tercile_idx][1] = subject_idx
@@ -271,6 +273,13 @@ if(remove_outliers):
                 outlier_subjects[dec] = outlier_subjects[dec] - 1
 
 printv("Outlier removal complete")
+
+
+print(len(trial_data[trial_data[:, 0] == 0]))
+
+for group_idx in range(0, len(group_list)):
+    printv(str(len(subject_list[group_idx])) + " subjects in Group " + group_list[group_idx])
+    printv(subject_list[group_idx])
 
 ######################### TESTS ##########################
 printv("running tests...")

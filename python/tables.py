@@ -17,6 +17,8 @@ def run_stats_marked_tercile(group_list, subject_list, trial_data, output_path):
             if trial[7] == 0:
                 continue # do not include central trials
             group_idx = int(trial[0])
+
+        #    print(trial)
             group_name = group_list[group_idx]
             subject_name = subject_list[group_idx][int(trial[1])]
             deviations = (float(trial[5]), float(trial[6]))
