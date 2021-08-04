@@ -15,14 +15,11 @@ output_path = ""
 
 verbose = False
 
-all_figures = True
-plotting_list = []
+table_list = ["run-stats-marked-tercile"]
 
-all_tables = True
-table_list = []
+plotting_list = ["subject-tercile-arrows", "subject-tercile-arrows-with-error", "group-centering-bars", "group-initial-deviations-bars", "group-midtrial-deviations-bars", "group-initial-pitches-histogram", "group-midtrial-pitches-histogram", "group-pitches-qq", "subject-tercile-trapizoids-with-error"]
 
-all_tests = True
-test_list = []
+test_list = ["test-of-normality"]
 
 show_figures = True
 print_test_results = True
@@ -30,7 +27,7 @@ print_test_results = True
 plot_theme = "dark_background"
 
 remove_outliers = True
-OUTLIER_STD = 1
+OUTLIER_STD = 2
 
 def help():
     print("ARGUMENT OVERVIEW")
@@ -56,21 +53,21 @@ for argx in range(1, len(args)):
     elif arg == "-v" or arg == "--verbose":
         verbose = True
     elif arg == "-f" or arg == "--figures":
-        all_figures = False
+        plotting_list = []
         for listable in range(argx + 1, len(args)):
             if(args[listable] == "-"):
                 break
             else:
                 plotting_list.append(args[listable])
     elif arg == "-b" or arg == "--tables":
-        all_tables = False
+        table_list = []
         for listable in range(argx + 1, len(args)):
             if(args[listable] == "-"):
                 break
             else:
                 table_list.append(args[listable])
     elif arg == "-t" or arg == "--tests":
-        all_tests = False
+        test_list = []
         for listable in range(argx + 1, len(args)):
             if(args[listable] == "-"):
                 break
@@ -273,15 +270,13 @@ if(remove_outliers):
 printv("Outlier removal complete")
 
 
-print(len(trial_data[trial_data[:, 0] == 0]))
-
 for group_idx in range(0, len(group_list)):
     printv(str(len(subject_list[group_idx])) + " subjects in Group " + group_list[group_idx])
     printv(subject_list[group_idx])
 
 ######################### TESTS ##########################
 printv("running tests...")
-if "test-of-normality" in test_list or all_tests:
+if "test-of-normality" in test_list:
     printv("running test of normality")
     tests.test_of_normality(group_list, trial_data)
 
@@ -291,7 +286,7 @@ printv("tests complete.")
 
 printv("generating tables...")
 
-if "run-stats-marked-tercile" in table_list or all_tables:
+if "run-stats-marked-tercile" in table_list:
     printv("generating run_stats table with terciles")
     tables.run_stats_marked_tercile(group_list, subject_list, trial_data, output_path)
 
@@ -314,34 +309,36 @@ else:
     plt.style.use(plot_theme)
 
 
-if "subject-tercile-arrows" in plotting_list or all_figures:
+if "subject-tercile-arrows" in plotting_list:
     printv("plotting subject tercile arrows")
     fig.subject_tercile_arrows(group_list, subject_list, terciles_data)
-if "subject-tercile-arrows-with-error" in plotting_list or all_figures:
+if "subject-tercile-arrows-with-error" in plotting_list:
     printv("plotting subject tercile arrows with error")
     fig.subject_tercile_arrows_with_error(group_list, subject_list, trial_data)
-if "group-centering-bars" in plotting_list or all_figures:
+if "group-centering-bars" in plotting_list:
     printv("plotting group centering bars")
     fig.group_centering_bars(group_list, trial_data)
-if "group-starting-deviations-bars" in plotting_list or all_figures:
+if "group-initial-deviations-bars" in plotting_list:
     printv("plotting group starting deviations bars")
-    fig.group_starting_deviations_bars(group_list, trial_data)
-if "group-centering-bars-o2" in plotting_list or all_figures:
+    fig.group_initial_deviations_bars(group_list, trial_data)
+if "group-centering-bars-o2" in plotting_list:
     printv("plotting group centering bars (option 2)")
     fig.group_centering_bars_o2(group_list, trial_data)
-if "group-ending-deviations-bars" in plotting_list or all_figures:
+if "group-midtrial-deviations-bars" in plotting_list:
     printv("plotting group ending deviations bars")
-    fig.group_ending_deviations_bars(group_list, trial_data)
-if "group-starting-pitches-histogram" in plotting_list or all_figures:
+    fig.group_midtrial_deviations_bars(group_list, trial_data)
+if "group-initial-pitches-histogram" in plotting_list:
     printv("plotting group starting pitches histogram")
-    fig.group_starting_pitches_histogram(group_list, trial_data)
-if "group-ending-pitches-histogram" in plotting_list or all_figures:
+    fig.group_initial_pitches_histogram(group_list, trial_data)
+if "group-midtrial-pitches-histogram" in plotting_list:
     printv("plotting group ending pitches histogram")
-    fig.group_ending_pitches_histogram(group_list, trial_data)
-if "group-pitches-qq" in plotting_list or all_figures:
+    fig.group_midtrial_pitches_histogram(group_list, trial_data)
+if "group-pitches-qq" in plotting_list:
     printv("plotting group pitches qq plot")
     fig.group_pitches_qq(group_list, trial_data)
-
+if "subject-tercile-trapizoids-with-error" in plotting_list:
+    printv("plotting subject tercile trapizoids with error")
+    fig.subject_tercile_trapizoids_with_error(group_list, subject_list, trial_data)
 printv("saving figures to disk....")
 fig.save_figs(output_path)
 tests.save_results(output_path)
