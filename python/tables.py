@@ -20,7 +20,7 @@ def run_stats_marked_tercile(group_list, subject_list, trial_data, output_path):
 
         #    print(trial)
             group_name = group_list[group_idx]
-            subject_name = subject_list[group_idx][int(trial[1])]
+            subject_name = group_name.replace(" ", "") + str(int(trial[1]))
             deviations = (float(trial[5]), float(trial[6]))
             centering = float(trial[4])
             tercile = "UPPER" if trial[7] > 0 else "LOWER"

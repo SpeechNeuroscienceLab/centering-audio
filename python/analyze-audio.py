@@ -24,7 +24,7 @@ test_list = ["test-of-normality"]
 show_figures = True
 print_test_results = True
 
-plot_theme = "dark_background"
+plot_theme = "fivethirtyeight"
 
 remove_outliers = True
 OUTLIER_STD = 2
@@ -154,6 +154,22 @@ printv("reading csv complete")
 
 trial_data = np.array(trial_data) # trial data is converted to numpy array
 
+# Remove the outlier **trials** for the entire population
+
+printv("Clipping group trials")
+
+for group_idx in range(0, len(group_list)):
+    printv("Working on group " + group_list[group_idx])
+    group_mask = (trial_data[:, 0] == group_idx)
+    mean = np.mean(trial_data[group_mask])
+    std = np.std(trial_data[group_mask])
+    printv("Group mean is " + str(mean) + " with std " + str(std))
+    deletion_mask = group_mask & ((trial_data[:, 2] > mean + std * 3) | (trial_data[:, 2] < mean - std * 3))
+    printv("Removed " + str(deletion_mask.sum()) + " trials...")
+    trial_data = np.delete(trial_data, deletion_mask, axis=0)
+
+printv("Trial clipping successful.")
+
 terciles_data = []
 
 printv("analyzing terciles...")
@@ -203,69 +219,73 @@ for group_idx in range(0, len(group_list)):
 
 printv("tercile analysis complete")
 
-printv("purging outliers...")
+for group_idx in range(0, len(group_list)):
+    printv(str(len(subject_list[group_idx])) + " subjects in Group " + group_list[group_idx] + " with outliers included")
+    printv(subject_list[group_idx])
 
-if(remove_outliers):
-    for group_idx in range(0, len(group_list)):
-        # for each group, get the group data
-        outlier_subjects = [];
-        group_tercile_data = terciles_data[group_idx]
-        group_trial_data = trial_data[trial_data[:, 0] == group_idx]
-        # only observe outliers in the peripheral trials
-        observation_terciles = [-1, 1]
+# printv("purging outliers...")
 
-        for tercile in observation_terciles:
-            # tercile is the value of which tercile we are looking at. 
-            # calculate the cutoffs
-            tercile_trial_data = group_trial_data[group_trial_data[:, 7] == tercile]
-            mean = np.mean(tercile_trial_data[:, 5])
-            std = np.std(tercile_trial_data[:, 5])
-            tercile_strings = ["lower", "central", "upper"]
-            printv(tercile_strings[tercile + 1] + " tercile starting location:")
-            printv("mean is " + str(mean) + " and std is " + str(std)) 
+# if(remove_outliers):
+#    for group_idx in range(0, len(group_list)):
+#        # for each group, get the group data
+#        outlier_subjects = [];
+#        group_tercile_data = terciles_data[group_idx]
+#        group_trial_data = trial_data[trial_data[:, 0] == group_idx]
+#        # only observe outliers in the peripheral trials
+#        observation_terciles = [-1, 1]
 
-            for subject_idx in range(0, len(subject_list[group_idx])):
-                # for each subject in the list
-                # get the subject start point average for this tercile 
-                subject_start = np.abs(terciles_data[group_idx][subject_idx][tercile + 1][2])
+#        for tercile in observation_terciles:
+#            # tercile is the value of which tercile we are looking at. 
+#            # calculate the cutoffs
+#            tercile_trial_data = group_trial_data[group_trial_data[:, 7] == tercile]
+#            mean = np.mean(tercile_trial_data[:, 5])
+#            std = np.std(tercile_trial_data[:, 5])
+#            tercile_strings = ["lower", "central", "upper"]
+#            printv(tercile_strings[tercile + 1] + " tercile starting location:")
+#            printv("mean is " + str(mean) + " and std is " + str(std)) 
 
-                if(subject_start > mean + std * OUTLIER_STD or subject_start < mean - std * OUTLIER_STD):
-                    printv("Subject " + subject_list[group_idx][subject_idx] + " from group " + 
-                            group_list[group_idx] + " can be considered an outlier (index " + str(subject_idx) + 
-                            ") due to its " + str(tercile) + " tercile position")
-                    outlier_subjects.append(subject_idx)
+#            for subject_idx in range(0, len(subject_list[group_idx])):
+#                # for each subject in the list
+#                # get the subject start point average for this tercile 
+#                subject_start = np.abs(terciles_data[group_idx][subject_idx][tercile + 1][2])
 
-        outlier_subjects.sort()
+#                if(subject_start > mean + std * OUTLIER_STD or subject_start < mean - std * OUTLIER_STD):
+#                    printv("Subject " + subject_list[group_idx][subject_idx] + " from group " + 
+#                            group_list[group_idx] + " can be considered an outlier (index " + str(subject_idx) + 
+#                            ") due to its " + str(tercile) + " tercile position")
+#                    outlier_subjects.append(subject_idx)
 
-        # actually remove the outlier from trials 
-        for outlier_idx in range(0, len(outlier_subjects)):
-            outlier = outlier_subjects[outlier_idx]
-            # outlier is the index of the outlier in this group
-            # remove from trial_data
-            trials_to_remove = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == outlier)))
-            trial_data = np.delete(trial_data, trials_to_remove, axis=0)
+#        outlier_subjects.sort()
 
-            # remove from tercile data
-            terciles_data[group_idx].pop(outlier)
+#        # actually remove the outlier from trials 
+#        for outlier_idx in range(0, len(outlier_subjects)):
+#            outlier = outlier_subjects[outlier_idx]
+#            # outlier is the index of the outlier in this group
+#            # remove from trial_data
+#            trials_to_remove = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == outlier)))
+#            trial_data = np.delete(trial_data, trials_to_remove, axis=0)
 
-            # remove from subject_list
-            subject_list[group_idx].pop(outlier)
+#            # remove from tercile data
+#            terciles_data[group_idx].pop(outlier)
 
-            # organize remaining data
-            printv("successfully removed outlier at index " + str(outlier) + " out of " + str(len(subject_list[group_idx])))
+#            # remove from subject_list
+#            subject_list[group_idx].pop(outlier)
 
-            # renumber trial_data
-            for subject_idx in range(outlier, len(subject_list[group_idx])):
-                replacement_mask = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == subject_idx + 1)))
-                trial_data[replacement_mask, 1] = subject_idx
+#            # organize remaining data
+#            printv("successfully removed outlier at index " + str(outlier) + " out of " + str(len(subject_list[group_idx])))
 
-                # renumber terciles_data
-                for tercile_idx in [0, 1, 2]:
-                    terciles_data[group_idx][subject_idx][tercile_idx][1] = subject_idx
+#            # renumber trial_data
+#            for subject_idx in range(outlier, len(subject_list[group_idx])):
+#                replacement_mask = np.where(np.logical_and((trial_data[:, 0] == group_idx), (trial_data[:, 1] == subject_idx + 1)))
+#                trial_data[replacement_mask, 1] = subject_idx
 
-            # renumber outlier data
-            for dec in range(outlier_idx + 1, len(outlier_subjects)):
-                outlier_subjects[dec] = outlier_subjects[dec] - 1
+#                # renumber terciles_data
+#                for tercile_idx in [0, 1, 2]:
+#                    terciles_data[group_idx][subject_idx][tercile_idx][1] = subject_idx
+
+#            # renumber outlier data
+#            for dec in range(outlier_idx + 1, len(outlier_subjects)):
+#                outlier_subjects[dec] = outlier_subjects[dec] - 1
 
 printv("Outlier removal complete")
 

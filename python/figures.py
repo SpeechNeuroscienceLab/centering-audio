@@ -8,7 +8,10 @@ scales = dict()
 # plot specific properties (default)
 scales["deviations-bars"] = ((), (0, 100))
 scales["pitches-histogram"] = ((-750, 750),(0, 1))
-scales["pitches-histogram-bin-size"] = 10
+scales["pitches-histogram-bin-size"] = 20
+scales["patch-errorbar-height"] = 0.3
+scales["whisker-errorbar-height"] = 0.25
+scales["whisker-errorbar-width"] = 5
 
 # figure generation properties
 scales["figure-figsize"] = (20, 14)
@@ -17,7 +20,7 @@ scales["qq-outlier-multiplier"] = 2
 
 # colors
 standard_colors = ["lightsteelblue","peru"]
-special_colors = ["saddlebrown"]
+special_colors = ["saddlebrown", "salmon", "tomato"]
 
 # holds the figure object for later use
 figs = []
@@ -85,6 +88,30 @@ def subject_tercile_arrows(group_list, subject_list, terciles_data):
 def standard_error(data):
     return np.std(data, ddof=1) / np.sqrt(np.size(data)) # degree of freedom is 1 because sample standard deviation
 
+def patch_errorbar(x, y, xerr=0, color=special_colors[0], width=scales["patch-errorbar-height"], size_adjustment=1):
+    width = width * size_adjustment
+    
+    xpts = [x - xerr, x + xerr, x + xerr, x - xerr, x - xerr]
+    ypts = [y - width/2, y - width/2, y + width/2, y + width/2, y - width/2]
+
+    plt.fill(xpts, ypts, color, alpha=0.5)
+
+def whisker_errorbar(x, y, xerr=0, color=special_colors[0], width=scales["whisker-errorbar-width"], height=scales["whisker-errorbar-height"]):
+    # start by drawing a line between the points
+    xpts = [x - xerr, x + xerr]
+    ypts = [y, y]
+    plt.plot(xpts, ypts, color=color)
+
+    # now plot the whiskers
+    xpts = [x - xerr + width, x - xerr, x - xerr + width]
+    ypts = [y + height, y, y - height]
+    plt.plot(xpts, ypts, color=color)
+
+    xpts = [x + xerr - width, x + xerr, x + xerr - width]
+    ypts = [y + height, y, y - height]
+    plt.plot(xpts, ypts, color=color)
+    
+
 def subject_tercile_arrows_with_error(group_list, subject_list, trial_data):
     figs.append(plt.figure(figsize=scales["figure-figsize"]))
     fig_names.append("subject_tercile_arrows_with_error")
@@ -111,15 +138,13 @@ def subject_tercile_arrows_with_error(group_list, subject_list, trial_data):
             # all pitches with errors have been written
             # plot the subject arrows
             
-            draw_arrow(pitch[0][0][0], pitch[0][1][0], subject_idx * 2, subject_idx * 2 + 1, color=standard_colors[0], style="minimal")
-            plt.errorbar(pitch[0][0][0], subject_idx * 2, xerr=pitch[0][0][1], color=special_colors[0])
-            plt.errorbar(pitch[0][1][0], subject_idx * 2 + 1, xerr=pitch[0][1][1], color=special_colors[0])
-            draw_arrow(pitch[1][0][0], pitch[1][1][0], subject_idx * 2, subject_idx * 2 + 1, color=standard_colors[1], style="minimal")
-            plt.errorbar(pitch[1][0][0], subject_idx * 2, xerr=pitch[1][0][1], color=special_colors[0])
-            plt.errorbar(pitch[1][1][0], subject_idx * 2 + 1, xerr=pitch[1][1][1], color=special_colors[0])
-            draw_arrow(pitch[2][0][0], pitch[2][1][0], subject_idx * 2, subject_idx * 2 + 1, color=standard_colors[0], style="minimal")
-            plt.errorbar(pitch[2][0][0], subject_idx * 2, xerr=pitch[2][0][1], color=special_colors[0])
-            plt.errorbar(pitch[2][1][0], subject_idx * 2 + 1, xerr=pitch[2][1][1], color=special_colors[0])
+            draw_arrow(pitch[0][0][0], pitch[0][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
+            whisker_errorbar(pitch[0][0][0], subject_idx, xerr=pitch[0][0][1], color=special_colors[1])
+            whisker_errorbar(pitch[0][1][0], subject_idx, xerr=pitch[0][1][1], color=special_colors[1])
+            draw_arrow(pitch[1][0][0], pitch[1][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
+            draw_arrow(pitch[2][0][0], pitch[2][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
+            whisker_errorbar(pitch[2][0][0], subject_idx, xerr=pitch[2][0][1], color=special_colors[1])
+            whisker_errorbar(pitch[2][1][0], subject_idx, xerr=pitch[2][1][1], color=special_colors[1])
 
         plt.xlabel('Pitch (Cents)', weight="bold")
         plt.yticks([])
@@ -202,6 +227,8 @@ def group_centering_bars(group_list, trial_data):
     groups_included = np.unique(trial_data[:, 0])
 
     bar_labels = []
+    SPACER = 0.3
+    bar_locations = []
 
     for group_idx in groups_included:
         group_data = trial_data[trial_data[:, 0] == group_idx, :]
@@ -211,16 +238,22 @@ def group_centering_bars(group_list, trial_data):
         centering_mean = (np.mean(peripheral_centering[0]), np.mean(peripheral_centering[1]))
         centering_error = (standard_error(peripheral_centering[0]), standard_error(peripheral_centering[1]))
 
-        plt.bar(group_idx * 2, centering_mean[0], color=standard_colors[0])
-        plt.bar(group_idx * 2 + 1, centering_mean[1], color=standard_colors[1])
+        bar_locations.append(group_idx * 2 + group_idx * SPACER)
+        bar_locations.append(group_idx * 2 + 1 + group_idx * SPACER)
+        
+        plt.bar(group_idx * 2 + group_idx * SPACER, centering_mean[0], color=standard_colors[int(group_idx)])
+        plt.bar(group_idx * 2 + 1 + group_idx * SPACER, centering_mean[1], color=standard_colors[int(group_idx)])
+        
 
-        plt.errorbar(group_idx * 2, centering_mean[0], yerr=centering_error[0], color=special_colors[0], capsize=10)
-        plt.errorbar(group_idx * 2 + 1, centering_mean[1], yerr=centering_error[1], color=special_colors[0], capsize=10)
+        plt.errorbar(group_idx * 2 + group_idx * SPACER, centering_mean[0], yerr=centering_error[0], color=special_colors[0], capsize=10)
+        plt.errorbar(group_idx * 2 + 1 + group_idx * SPACER, centering_mean[1], yerr=centering_error[1], color=special_colors[0], capsize=10)
         
         bar_labels.append(group_list[int(group_idx)] + " (Upper)")
-        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
 
-    plt.xticks(np.arange(len(group_list)*2), bar_labels, weight="bold")
+        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+            
+
+    plt.xticks(bar_locations, bar_labels, weight="bold")
 
     plt.grid(False, axis='x')
 
@@ -257,6 +290,7 @@ def group_centering_bars_o2(group_list, trial_data):
         bar_labels.append(group_list[int(group_idx)] + " (Lower)")
 
     plt.xticks(np.arange(len(group_list)*2), bar_labels, weight="bold")
+    
 
     plt.ylabel('Centering (Cents)', weight="bold")
 
@@ -292,27 +326,35 @@ def group_initial_deviations_bars(group_list, trial_data):
     plt.title("Average Initial Deviations (Cents)", weight="bold")
 
     groups_included = np.unique(trial_data[:, 0])
-
+    
     bar_labels = []
+    SPACER = 0.3
+    bar_locations = []
 
-    for group_idx in groups_included:
-        group_data = trial_data[trial_data[:, 0] == group_idx, :]
-        peripheral_starting_deviations = (group_data[group_data[:, 7] == 1, 5], group_data[group_data[:, 7] == -1, 5])
+    for tercile in [0, 1]:
+        for group_idx in groups_included:
+            group_data = trial_data[trial_data[:, 0] == group_idx, :]
+            peripheral_starting_deviations = (group_data[group_data[:, 7] == 1, 5], group_data[group_data[:, 7] == -1, 5])
 
-        # each bar chart needs two datapoints. We need the mean and error
-        starting_deviations_mean = (np.mean(peripheral_starting_deviations[0]), np.mean(peripheral_starting_deviations[1]))
-        starting_deviations_error = (standard_error(peripheral_starting_deviations[0]), standard_error(peripheral_starting_deviations[1]))
+            # each bar chart needs two datapoints. We need the mean and error
+            starting_deviations_mean = (np.mean(peripheral_starting_deviations[0]), np.mean(peripheral_starting_deviations[1]))
+            starting_deviations_error = (standard_error(peripheral_starting_deviations[0]), standard_error(peripheral_starting_deviations[1]))
 
-        plt.bar(group_idx * 2, starting_deviations_mean[0], color=standard_colors[0])
-        plt.bar(group_idx * 2 + 1, starting_deviations_mean[1], color=standard_colors[1])
+            bar_locations.append(group_idx + len(groups_included)*tercile + SPACER*tercile)
+            
+            plt.bar(group_idx + len(groups_included)*tercile + SPACER*tercile, starting_deviations_mean[tercile], color=standard_colors[int(group_idx)])
 
-        plt.errorbar(group_idx * 2, starting_deviations_mean[0], yerr=starting_deviations_error[0], color=special_colors[0], capsize=10)
-        plt.errorbar(group_idx * 2 + 1, starting_deviations_mean[1], yerr=starting_deviations_error[1], color=special_colors[0], capsize=10)
-                
-        bar_labels.append(group_list[int(group_idx)] + " (Upper)")
-        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+            plt.errorbar(group_idx + len(groups_included)*tercile + SPACER*tercile, starting_deviations_mean[tercile], yerr=starting_deviations_error[tercile], color=special_colors[0], capsize=10)
+            if(tercile == 0):
+                bar_labels.append(group_list[int(group_idx)] + " (Upper)")
+            else:
+                bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+        if(tercile != 1):
+            bar_labels.append(" ")
+            bar_locations.append(len(groups_included) + 1)
+            
 
-    plt.xticks(np.arange(len(group_list)*2), bar_labels, weight="bold")
+    plt.xticks(bar_locations, bar_labels, weight="bold")
 
     plt.ylabel('Initial Deviations (Cents)', weight="bold")
 
@@ -329,24 +371,33 @@ def group_midtrial_deviations_bars(group_list, trial_data):
     groups_included = np.unique(trial_data[:, 0])
 
     bar_labels = []
+    SPACER = 0.3
+    bar_locations = []
 
-    for group_idx in groups_included:
-        group_data = trial_data[trial_data[:, 0] == group_idx, :]
-        peripheral_ending_deviations = (group_data[group_data[:, 7] == 1, 6], group_data[group_data[:, 7] == -1, 6])
+    for tercile in [0, 1]:
+        for group_idx in groups_included:
+            group_data = trial_data[trial_data[:, 0] == group_idx, :]
+            peripheral_ending_deviations = (group_data[group_data[:, 7] == 1, 6], group_data[group_data[:, 7] == -1, 6])
 
-        # each bar chart needs two datapoints. We need the mean and error
-        ending_deviations_mean = (np.mean(peripheral_ending_deviations[0]), np.mean(peripheral_ending_deviations[1]))
-        ending_deviations_error = (standard_error(peripheral_ending_deviations[0]), standard_error(peripheral_ending_deviations[1]))
+            # each bar chart needs two datapoints. We need the mean and error
+            ending_deviations_mean = (np.mean(peripheral_ending_deviations[0]), np.mean(peripheral_ending_deviations[1]))
+            ending_deviations_error = (standard_error(peripheral_ending_deviations[0]), standard_error(peripheral_ending_deviations[1]))
 
-        plt.bar(group_idx * 2, ending_deviations_mean[0], color=standard_colors[0])
-        plt.bar(group_idx * 2 + 1, ending_deviations_mean[1], color=standard_colors[1])
+            bar_locations.append(group_idx + len(groups_included)*tercile + SPACER*tercile)
+            
+            plt.bar(group_idx + len(groups_included)*tercile + SPACER*tercile, ending_deviations_mean[tercile], color=standard_colors[int(group_idx)])
 
-        plt.errorbar(group_idx * 2, ending_deviations_mean[0], yerr=ending_deviations_error[0], color=special_colors[0], capsize=10)
-        plt.errorbar(group_idx * 2 + 1, ending_deviations_mean[1], yerr=ending_deviations_error[1], color=special_colors[0], capsize=10)
-        bar_labels.append(group_list[int(group_idx)] + " (Upper)")
-        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+            plt.errorbar(group_idx + len(groups_included)*tercile + SPACER*tercile, ending_deviations_mean[tercile], yerr=ending_deviations_error[tercile], color=special_colors[0], capsize=10)
+            if(tercile == 0):
+                bar_labels.append(group_list[int(group_idx)] + " (Upper)")
+            else:
+                bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+        if(tercile != 1):
+            bar_labels.append(" ")
+            bar_locations.append(len(groups_included) + 1)
+            
 
-    plt.xticks(np.arange(len(group_list)*2), bar_labels, weight="bold")
+    plt.xticks(bar_locations, bar_labels, weight="bold")
 
     
     
