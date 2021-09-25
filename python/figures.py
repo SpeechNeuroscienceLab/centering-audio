@@ -98,11 +98,10 @@ def patch_errorbar(x, y, xerr=0, color=special_colors[0], width=scales["patch-er
 
     plt.fill(xpts, ypts, color, alpha=0.5)
 
-def slant_errorbar(x, y, xerr=0, color=special_colors[2], width=0.1, direction=1):
-    width = width * direction
-    
-    xpts = [x - xerr, x + xerr]
-    ypts = [y - width/2, y + width/2]
+def slant_errorbar(x, y, xerr=0, color="black", slope=0.01, direction=1):
+    # this plots with a constant slope, where the magnitude signifies the error
+    xpts = [x - np.sqrt(xerr**2/(1 + slope**2)), x + np.sqrt(xerr**2/(1 + slope**2))]
+    ypts = [y - slope * np.sqrt(xerr**2/(1 + slope**2)), y + slope * np.sqrt(xerr**2/(1 + slope**2))]
 
     plt.plot(xpts, ypts, color, linewidth=scales["arrows_weight"])
 
@@ -149,12 +148,12 @@ def subject_tercile_arrows_with_error(group_list, subject_list, trial_data):
             # plot the subject arrows
             
             draw_arrow(pitch[0][0][0], pitch[0][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
-            slant_errorbar(pitch[0][0][0], subject_idx, xerr=pitch[0][0][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
-            slant_errorbar(pitch[0][1][0], subject_idx, xerr=pitch[0][1][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
+            patch_errorbar(pitch[0][0][0], subject_idx, xerr=pitch[0][0][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
+            patch_errorbar(pitch[0][1][0], subject_idx, xerr=pitch[0][1][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
             draw_arrow(pitch[1][0][0], pitch[1][1][0], subject_idx, subject_idx, color=standard_colors[1], style="flag")
             draw_arrow(pitch[2][0][0], pitch[2][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
-            slant_errorbar(pitch[2][0][0], subject_idx, xerr=pitch[2][0][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
-            slant_errorbar(pitch[2][1][0], subject_idx, xerr=pitch[2][1][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
+            patch_errorbar(pitch[2][0][0], subject_idx, xerr=pitch[2][0][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
+            patch_errorbar(pitch[2][1][0], subject_idx, xerr=pitch[2][1][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
 
         plt.xlabel('Pitch (Cents)', weight="bold")
         plt.yticks([])
