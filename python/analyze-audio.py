@@ -24,7 +24,7 @@ test_list = ["test-of-normality"]
 show_figures = True
 print_test_results = True
 
-plot_theme = "fivethirtyeight"
+plot_theme = "default"
 
 remove_outliers = True
 OUTLIER_STD = 2
@@ -164,7 +164,7 @@ for group_idx in range(0, len(group_list)):
     mean = np.mean(trial_data[group_mask])
     std = np.std(trial_data[group_mask])
     printv("Group mean is " + str(mean) + " with std " + str(std))
-    deletion_mask = group_mask & ((trial_data[:, 2] > mean + std * 3) | (trial_data[:, 2] < mean - std * 3))
+    deletion_mask = group_mask & ((trial_data[:, 2] >= mean + std * 3) | (trial_data[:, 2] <= mean - std * 3))
     printv("Removed " + str(deletion_mask.sum()) + " trials...")
     trial_data = np.delete(trial_data, deletion_mask, axis=0)
 
