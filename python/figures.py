@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 from scipy.stats import norm
+import matplotlib.collections as pltcollections
 import statsmodels.api as sm
 
 ############ useful constants and shared resources #############
@@ -67,7 +68,11 @@ def subject_tercile_arrows(group_list, subject_list, terciles_data):
             # for each subject
             for tercile_idx in range(0, 3):
                 arrow_color = standard_colors[0] if tercile_idx % 2 == 0 else standard_colors[1]
-                draw_arrow(terciles_data[group_idx][subject_idx][tercile_idx][2], terciles_data[group_idx][subject_idx][tercile_idx][3], subject_idx, subject_idx, arrow_color)
+                post_center = np.abs(terciles_data[group_idx][subject_idx][tercile_idx][3])
+                if(terciles_data[group_idx][subject_idx][tercile_idx][2] < 0):
+                    # the post centering value is always positive now
+                    post_center = -post_center
+                draw_arrow(terciles_data[group_idx][subject_idx][tercile_idx][2],post_center, subject_idx, subject_idx, arrow_color)
         plt.xlabel('Pitch (Cents)', weight="bold")
         plt.yticks([])
         plt.gca().axes.get_yaxis().set_ticks([])
@@ -105,20 +110,20 @@ def slant_errorbar(x, y, xerr=0, color="black", slope=0.01, direction=1):
 
     plt.plot(xpts, ypts, color, linewidth=scales["arrows_weight"])
 
-def whisker_errorbar(x, y, xerr=0, color=special_colors[0], width=scales["whisker-errorbar-width"], height=scales["whisker-errorbar-height"]):
+def whisker_errorbar(x, y, xerr=0, plotcolor=special_colors[0], width=scales["whisker-errorbar-width"], height=scales["whisker-errorbar-height"]):
     # start by drawing a line between the points
     xpts = [x - xerr, x + xerr]
     ypts = [y, y]
-    plt.plot(xpts, ypts, plotcolor=special_colors[1], linewidth=scales["arrows_weight"])
+    plt.plot(xpts, ypts, color=plotcolor, linewidth=scales["arrows_weight"]*0.7)
 
     # now plot the whiskers
     xpts = [x - xerr + width, x - xerr, x - xerr + width]
     ypts = [y + height, y, y - height]
-    plt.plot(xpts, ypts, color=plotcolor, linewidth=scales["arrows_weight"])
+    plt.plot(xpts, ypts, color=plotcolor, linewidth=scales["arrows_weight"]*0.7)
 
     xpts = [x + xerr - width, x + xerr, x + xerr - width]
     ypts = [y + height, y, y - height]
-    plt.plot(xpts, ypts, color=plotcolor, linewidth=scales["arrows_weight"])
+    plt.plot(xpts, ypts, color=plotcolor, linewidth=scales["arrows_weight"]*0.7)
     
 
 def subject_tercile_arrows_with_error(group_list, subject_list, trial_data):
@@ -148,14 +153,14 @@ def subject_tercile_arrows_with_error(group_list, subject_list, trial_data):
             # plot the subject arrows
             
             draw_arrow(pitch[0][0][0], pitch[0][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
-            patch_errorbar(pitch[0][0][0], subject_idx, xerr=pitch[0][0][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
-            patch_errorbar(pitch[0][1][0], subject_idx, xerr=pitch[0][1][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
+            whisker_errorbar(pitch[0][0][0], subject_idx, xerr=pitch[0][0][1])
+            whisker_errorbar(pitch[0][1][0], subject_idx, xerr=pitch[0][1][1])
             draw_arrow(pitch[1][0][0], pitch[1][1][0], subject_idx, subject_idx, color=standard_colors[1], style="flag")
             draw_arrow(pitch[2][0][0], pitch[2][1][0], subject_idx, subject_idx, color=standard_colors[0], style="flag")
-            patch_errorbar(pitch[2][0][0], subject_idx, xerr=pitch[2][0][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
-            patch_errorbar(pitch[2][1][0], subject_idx, xerr=pitch[2][1][1], direction=np.sign(pitch[0][1][0] - pitch[0][0][0]))
+            whisker_errorbar(pitch[2][0][0], subject_idx, xerr=pitch[2][0][1])
+            whisker_errorbar(pitch[2][1][0], subject_idx, xerr=pitch[2][1][1])
 
-        plt.xlabel('Pitch (Cents)', weight="bold")
+        plt.xlabel('Frequency (Cents)', weight="bold")
         plt.yticks([])
         plt.gca().axes.get_yaxis().set_ticks([])
 
@@ -247,6 +252,9 @@ def group_centering_bars(group_list, trial_data):
         centering_mean = (np.mean(peripheral_centering[0]), np.mean(peripheral_centering[1]))
         centering_error = (standard_error(peripheral_centering[0]), standard_error(peripheral_centering[1]))
 
+        print("Centering means: " + str(centering_mean))
+        print("Centering errors: " + str(centering_error))
+
         bar_locations.append(group_idx * 2 + group_idx * SPACER)
         bar_locations.append(group_idx * 2 + 1 + group_idx * SPACER)
         
@@ -257,10 +265,118 @@ def group_centering_bars(group_list, trial_data):
         plt.errorbar(group_idx * 2 + group_idx * SPACER, centering_mean[0], yerr=centering_error[0], color=special_colors[0], capsize=10)
         plt.errorbar(group_idx * 2 + 1 + group_idx * SPACER, centering_mean[1], yerr=centering_error[1], color=special_colors[0], capsize=10)
         
-        bar_labels.append(group_list[int(group_idx)] + " (Upper)")
+        bar_labels.append(group_list[int(group_idx)] + "\n(Lowering Pitch)")
 
-        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+        bar_labels.append(group_list[int(group_idx)] + "\n(Raising Pitch)")
             
+
+    plt.xticks(bar_locations, bar_labels, weight="bold")
+
+    plt.grid(False, axis='x') 
+    plt.ylabel('Centering (Cents)', weight="bold")
+
+
+################# group combined centering bars  #####################
+def group_combined_centering_bars(group_list, trial_data):
+    figs.append(plt.figure(figsize=scales["figure-figsize"]))
+    fig_names.append("group_combined_centering_bars")
+
+    plt.rc('font', size=scales["default-font-size"], weight="bold")
+    plt.title("Average Centering (Cents)", weight="bold")
+
+    groups_included = np.unique(trial_data[:, 0])
+
+    bar_labels = []
+    SPACER = 0.3
+    bar_locations = []
+
+    for group_idx in groups_included:
+        group_data = trial_data[trial_data[:, 0] == group_idx, :]
+        peripheral_centering = group_data[group_data[:, 7] != 0, 4]
+
+        # each bar chart needs two datapoints. We need the mean and error
+        centering_mean = np.mean(peripheral_centering)
+        centering_error = standard_error(peripheral_centering)
+
+        print("Centering means: " + str(centering_mean))
+        print("Centering errors: " + str(centering_error))
+
+        bar_locations.append(group_idx * (1 + SPACER))
+        
+        plt.bar(group_idx * (1 + SPACER), centering_mean, color=standard_colors[int(group_idx)],edgecolor="black")
+        
+        plt.errorbar(group_idx * (1 + SPACER), centering_mean, yerr=centering_error, color=special_colors[0], capsize=10)
+        
+        bar_labels.append(group_list[int(group_idx)])
+
+    plt.xticks(bar_locations, bar_labels, weight="bold")
+
+    plt.grid(False, axis='x')
+
+    plt.ylabel('Centering (Cents)', weight="bold")
+
+##################### trial post pre scatterplot ##############
+def trial_post_pre_scatterplot(group_list, trial_data):
+    fig_obj = plt.figure(figsize=scales["figure-figsize"])
+    figs.append(fig_obj)
+    fig_names.append("trial_post_pre_scatterplot")
+
+    plt.rc('font', size=scales["default-font-size"], weight="bold")
+    plt.title("Trial-wise Pre vs. Post Frequency Scatterplot")
+
+    groups_included = np.unique(trial_data[:, 0])
+
+    for group_idx in groups_included:
+        group_data = trial_data[trial_data[:, 0] == group_idx, :]
+        peripheral_data = group_data[group_data[:, 7] != 0, :]
+        plt.scatter(peripheral_data[:, 3], peripheral_data[:, 2], c=standard_colors[int(group_idx)], s=60, alpha=0.5, label=group_list[int(group_idx)])
+    
+    plt.ylabel('Post-centering Frequency (Cents)', weight="bold")
+    plt.xlabel('Pre-centering Frequency (Cents)', weight="bold")
+        
+    plt.legend()
+
+##################### group centering violin ##################
+def group_centering_violin(group_list, trial_data):
+    figs.append(plt.figure(figsize=scales["figure-figsize"]))
+    fig_names.append("group_centering_violin")
+
+    plt.rc('font', size=scales["default-font-size"], weight="bold")
+    plt.title("Average Centering (Cents)", weight="bold")
+
+    groups_included = np.unique(trial_data[:, 0])
+
+    bar_labels = []
+    SPACER = 0.3
+    bar_locations = []
+    plt.axhline(y=0, xmin=0, xmax=4, color="grey", dashes=(3, 2))
+
+    for group_idx in groups_included:
+        group_data = trial_data[trial_data[:, 0] == group_idx, :]
+        peripheral_centering = (group_data[group_data[:, 7] == 1, 4], group_data[group_data[:, 7] == -1, 4])
+
+        peripheral_centering_means = (np.mean(peripheral_centering[0]), np.mean(peripheral_centering[1]))
+
+        bar_locations.append(group_idx * 2 + group_idx * SPACER)
+        bar_locations.append(group_idx * 2 + 1 + group_idx * SPACER)
+        
+        violins_data = (plt.violinplot(peripheral_centering[0], positions=[bar_locations[-2]]), plt.violinplot(peripheral_centering[1], positions=[bar_locations[-1]]))
+        
+        for group_dict in violins_data:
+            for violin_key in group_dict:
+                if (type(group_dict[violin_key]) is pltcollections.LineCollection):
+                    group_dict[violin_key].set_edgecolor(special_colors[0])
+                else: # a hack... should fix (TODO) for recoloring violin plots
+                    for violin in group_dict[violin_key]:
+                        violin.set_facecolor(standard_colors[int(group_idx)])
+                        violin.set_edgecolor(standard_colors[int(group_idx)])
+    
+        bar_labels.append(group_list[int(group_idx)] + "\n(Lowering Pitch)")
+
+        bar_labels.append(group_list[int(group_idx)] + "\n(Raising Pitch)")
+            
+        plt.scatter(bar_locations[-2], peripheral_centering_means[0], color="black", zorder=3)
+        plt.scatter(bar_locations[-1], peripheral_centering_means[1], color="black", zorder=3)
 
     plt.xticks(bar_locations, bar_labels, weight="bold")
 
@@ -321,9 +437,9 @@ def group_initial_deviations_bars(group_list, trial_data):
         plt.errorbar(group_idx * 2 + group_idx * SPACER, init_mean[0], yerr=init_error[0], color=special_colors[0], capsize=10)
         plt.errorbar(group_idx * 2 + 1 + group_idx * SPACER, init_mean[1], yerr=init_error[1], color=special_colors[0], capsize=10)
         
-        bar_labels.append(group_list[int(group_idx)] + " (Upper)")
+        bar_labels.append(group_list[int(group_idx)] + "\n(Lowering Pitch)")
 
-        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+        bar_labels.append(group_list[int(group_idx)] + "\n(Raising Pitch)")
             
 
     plt.xticks(bar_locations, bar_labels, weight="bold")
@@ -338,7 +454,7 @@ def group_midtrial_deviations_bars(group_list, trial_data):
     plt.rc('font', size=scales["default-font-size"], weight="bold")
     plt.ylim(0, scales["deviations-bars"][1][1])
 
-    plt.title("Average Mid-trial Deviations (Cents)", weight="bold")
+    plt.title("Average Post-centering Deviations (Cents)", weight="bold")
 
     groups_included = np.unique(trial_data[:, 0])
 
@@ -364,16 +480,16 @@ def group_midtrial_deviations_bars(group_list, trial_data):
         plt.errorbar(group_idx * 2 + group_idx * SPACER, mid_mean[0], yerr=mid_error[0], color=special_colors[0], capsize=10)
         plt.errorbar(group_idx * 2 + 1 + group_idx * SPACER, mid_mean[1], yerr=mid_error[1], color=special_colors[0], capsize=10)
         
-        bar_labels.append(group_list[int(group_idx)] + " (Upper)")
+        bar_labels.append(group_list[int(group_idx)] + "\n(Lowering Pitch)")
 
-        bar_labels.append(group_list[int(group_idx)] + " (Lower)")
+        bar_labels.append(group_list[int(group_idx)] + "\n(Raising Pitch)")
             
 
     plt.xticks(bar_locations, bar_labels, weight="bold")
 
     
     
-    plt.ylabel('Mid-trial Deviations (Cents)', weight="bold")
+    plt.ylabel('Post-Centering Deviations (Cents)', weight="bold")
 
 
 ######################## group starting pitches histogram #######################
@@ -423,7 +539,7 @@ def group_midtrial_pitches_histogram(group_list, trial_data):
     fig_names.append("group_midtrial_pitches_histogram")
     
     plt.rc('font', size=scales["default-font-size"])
-    plt.suptitle("Mid-trial Pitch (Cents)", weight="bold")
+    plt.suptitle("Post-centering Pitch (Cents)", weight="bold")
 
     # vertical comparison
     for group_idx in range(0, len(group_list)):
@@ -463,7 +579,40 @@ def group_pitches_qq(group_list, trial_data):
         subplots[group_idx][0].title.set_text(group_list[group_idx] + " Initial Pitch")
         ending_fig = sm.qqplot(ending_pitch, ax=subplots[group_idx][1])
         sm.qqline(ax=subplots[group_idx][1], x=[-3, 3], y=[-200, 200], line="r")
-        subplots[group_idx][1].title.set_text(group_list[group_idx] + " Mid-trial Pitch")
+        subplots[group_idx][1].title.set_text(group_list[group_idx] + " Post-centering Pitch")
 
+def subject_efficiency_scatter(group_list, trial_data):
+    figs.append(plt.figure(figsize=scales["figure-figsize"]))
+    fig_names.append("subject_efficiency_scatter")
+        
+    plt.rc('font', size=scales["default-font-size"])
+    plt.suptitle("Efficiency of Centering", weight="bold")
+    
+    for group_idx in range(0, len(group_list)):
+        starting_deviation = np.abs(trial_data[trial_data[:, 0] == group_idx, 2])
+        centering = trial_data[trial_data[:, 0] == group_idx, 4]
+        
+        plt.subplot(1, len(group_list), group_idx + 1)
+        plt.scatter(starting_deviation, centering)
+        plt.xlabel("Starting Deviation", weight="bold")
+        plt.ylabel("Trial Centering", weight="bold")
+        plt.title(group_list[group_idx], weight="bold")
 
-
+def subject_efficiency_distribution(group_list, trial_data):
+    fig_names.append("subject_efficiency_distribution")
+        
+    qqfigure, subplots = plt.subplots(nrows=len(group_list), ncols=1, figsize=scales["figure-figsize"])
+    
+    figs.append(qqfigure)
+    
+    plt.rc('font', size=scales["default-font-size"], weight="bold")
+    plt.suptitle("Efficiency of Centering", weight="bold")
+    
+    for group_idx in range(0, len(group_list)):
+        starting_deviation = np.abs(( trial_data[np.logical_and(trial_data[:, 0] == group_idx, trial_data[:, 7] != 0) , 2] ))
+        centering = trial_data[np.logical_and(trial_data[:, 0] == group_idx, trial_data[:, 7] != 0), 4]
+        efficiency = centering/starting_deviation
+        
+        efficiency_fig = sm.qqplot(efficiency, ax=subplots[group_idx])
+        sm.qqline(ax=subplots[group_idx], x=[-3, 3], y=[-1, 1], line="r") # generates a warning. This is due to a bug in dependencies.
+        plt.title(group_list[group_idx], weight="bold")

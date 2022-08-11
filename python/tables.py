@@ -11,7 +11,10 @@ def run_stats_marked_tercile(group_list, subject_list, trial_data, output_path):
         output_file = csv.writer(file_object)
 
         # init labels
-        output_file.writerow(["Group Name", "Subject Name", "Starting Deviation (Cents)", "Ending Deviation (Cents)", "Centering (Cents)", "Trial Tercile"])
+        output_file.writerow(["Group Name", "Subject Name", "Starting Deviation (Cents)", "Ending Deviation (Cents)", "Centering (Cents)", "Trial Tercile", "Trial Index"])
+
+        trial_index = -1
+        current_subject = -1
 
         for trial in trial_data:
             if trial[7] == 0:
@@ -21,8 +24,13 @@ def run_stats_marked_tercile(group_list, subject_list, trial_data, output_path):
         #    print(trial)
             group_name = group_list[group_idx]
             subject_name = group_name.replace(" ", "") + str(int(trial[1]))
+            if(subject_name != current_subject):
+                trial_index = 0
+                current_subject = subject_name
+            else:
+                trial_index+=1
             deviations = (float(trial[5]), float(trial[6]))
             centering = float(trial[4])
             tercile = "UPPER" if trial[7] > 0 else "LOWER"
 
-            output_file.writerow([group_name, subject_name, str(deviations[0]), str(deviations[1]), str(centering), tercile])
+            output_file.writerow([group_name, subject_name, str(deviations[0]), str(deviations[1]), str(centering), tercile, str(trial_index)])

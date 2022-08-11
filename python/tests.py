@@ -21,7 +21,7 @@ def print_test_results():
 # Test of Normality will be run for the starting deviations as well as the 
 # ending deviations. 
 
-def test_of_normality(group_list, trial_data):
+def test_of_deviations_normality(group_list, trial_data):
     # runs test of normality on data for each group
     for group_idx in range(0, len(group_list)):
          group_name = group_list[group_idx]
@@ -50,3 +50,19 @@ def test_of_normality(group_list, trial_data):
 
          test_output.append("Test of Normality for " + group_name + " Ending Deviations:\n" + str(result) + "\n")
 
+def test_of_efficiency_normality(group_list, trial_data):
+    # runs test of normality on data for each group
+    for group_idx in range(0, len(group_list)):
+         group_name = group_list[group_idx]
+         group_data = trial_data[np.logical_and(trial_data[:, 0] == group_idx, trial_data[:, 7] != 0), :]
+         efficiency = group_data[:, 4]/group_data[:, 2]
+
+         mean = np.mean(efficiency)
+         std = np.std(efficiency)
+
+         result = kstest(efficiency, 'norm', args=(mean, std))
+         # the arguments mean and std attempt to compare the starting deviations with
+         # a normal distribution with a matching mean and standard deviation. This works
+         # flawlessly for perfectly normal random distributions, and fails for uniform.
+
+         test_output.append("Test of Normality for " + group_name + " Efficiency of Centering:\n" + str(result) + "\n")

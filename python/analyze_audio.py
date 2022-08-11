@@ -15,11 +15,11 @@ output_path = ""
 
 verbose = False
 
-table_list = ["run-stats-marked-tercile"]
+table_list = []
 
-plotting_list = ["subject-tercile-arrows", "subject-tercile-arrows-with-error", "group-centering-bars", "group-initial-deviations-bars", "group-midtrial-deviations-bars", "group-initial-pitches-histogram", "group-midtrial-pitches-histogram", "group-pitches-qq", "subject-tercile-trapizoids-with-error"]
+plotting_list = ["subject-tercile-arrows", "group-centering-bars", "group-initial-deviations-bars", "group-midtrial-deviations-bars", "group-initial-pitches-histogram", "group-midtrial-pitches-histogram", "group-combined-centering-bars", "trial-post-pre-scatterplot"]
 
-test_list = ["test-of-normality"]
+test_list = []
 
 show_figures = True
 print_test_results = True
@@ -28,6 +28,8 @@ plot_theme = "default"
 
 remove_outliers = True
 OUTLIER_STD = 2
+
+MIN_TRIALS = 25
 
 def help():
     print("ARGUMENT OVERVIEW")
@@ -160,6 +162,21 @@ printv("Clipping group trials")
 
 for group_idx in range(0, len(group_list)):
     printv("Working on group " + group_list[group_idx])
+    
+    subject_count = len(subject_list[group_idx])
+    
+    subject_cut_list = []
+    
+    for i in range(subject_count):
+        gdata = trial_data[trial_data[:, 0] == group_idx]
+        trial_count = gdata[gdata[:, 1] == i].shape[0]
+        if(trial_count < MIN_TRIALS):
+            printv("Recommend pruning " + subject_list[group_idx][i] + " due to lack of trials. Excluding from analysis...")
+            subject_cut_list.append(i)
+            
+            trial_data = trial_data[np.logical_not(np.logical_and(trial_data[:, 0] == group_idx, trial_data[:, 1] == i))]
+        
+        
     group_mask = (trial_data[:, 0] == group_idx)
     mean = np.mean(trial_data[group_mask])
     std = np.std(trial_data[group_mask])
@@ -167,6 +184,9 @@ for group_idx in range(0, len(group_list)):
     deletion_mask = group_mask & ((trial_data[:, 2] >= mean + std * 3) | (trial_data[:, 2] <= mean - std * 3))
     printv("Removed " + str(deletion_mask.sum()) + " trials...")
     trial_data = np.delete(trial_data, deletion_mask, axis=0)
+
+    for i, subj_del in enumerate(subject_cut_list):
+        print("Cut " + subject_list[group_idx].pop(subj_del - i))
 
 printv("Trial clipping successful.")
 
@@ -296,9 +316,12 @@ for group_idx in range(0, len(group_list)):
 
 ######################### TESTS ##########################
 printv("running tests...")
-if "test-of-normality" in test_list:
-    printv("running test of normality")
-    tests.test_of_normality(group_list, trial_data)
+if "test-of-deviations-normality" in test_list:
+    printv("running test of deviation normality")
+    tests.test_of_deviations_normality(group_list, trial_data)
+if "test-of-efficiency-normality" in test_list:
+    printv("running test of efficiency normality")
+    tests.test_of_efficiency_normality(group_list, trial_data)
 
 
 printv("tests complete.")
@@ -328,7 +351,12 @@ if plot_theme == "xkcd":
 else:
     plt.style.use(plot_theme)
 
-
+if "trial-post-pre-scatterplot" in plotting_list:
+    printv("plotting trial post vs. pre scatterplot")
+    fig.trial_post_pre_scatterplot(group_list, trial_data)
+if "group-combined-centering-bars" in plotting_list:
+    printv("plotting group combined centering bars")
+    fig.group_combined_centering_bars(group_list, trial_data)
 if "subject-tercile-arrows" in plotting_list:
     printv("plotting subject tercile arrows")
     fig.subject_tercile_arrows(group_list, subject_list, terciles_data)
@@ -338,6 +366,9 @@ if "subject-tercile-arrows-with-error" in plotting_list:
 if "group-centering-bars" in plotting_list:
     printv("plotting group centering bars")
     fig.group_centering_bars(group_list, trial_data)
+if "group-centering-violin" in plotting_list:
+    printv("plotting group centering violin")
+    fig.group_centering_violin(group_list, trial_data)
 if "group-initial-deviations-bars" in plotting_list:
     printv("plotting group starting deviations bars")
     fig.group_initial_deviations_bars(group_list, trial_data)
@@ -359,6 +390,12 @@ if "group-pitches-qq" in plotting_list:
 if "subject-tercile-trapizoids-with-error" in plotting_list:
     printv("plotting subject tercile trapizoids with error")
     fig.subject_tercile_trapizoids_with_error(group_list, subject_list, trial_data)
+if "group-efficiency-scatter" in plotting_list:
+    printv("plotting subject efficiency scatter plot")
+    fig.subject_efficiency_scatter(group_list, trial_data)
+if "group-efficiency-distribution" in plotting_list:
+    printv("plotting subject efficiency scatter plot")
+    fig.subject_efficiency_distribution(group_list, trial_data)
 printv("saving figures to disk....")
 fig.save_figs(output_path)
 tests.save_results(output_path)
@@ -369,3 +406,6 @@ if show_figures:
 if print_test_results:
     tests.print_test_results()
 
+
+
+print(trial_data[trial_data[:, 0] == 1].shape)
