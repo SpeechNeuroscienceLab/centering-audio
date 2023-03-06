@@ -1,0 +1,9 @@
+library(nlme)
+ADtable <- read.csv("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/post-analysis/centering-analysis.csv", header=TRUE, stringsAsFactors=FALSE)
+ADLME <- lme(Centering ~ Group * Tercile, random = ~1|Subject, data=ADtable, cor=corCompSymm())
+anova(ADLME)
+LSM <- lsmeans(ADLME, ~ Group * Tercile)
+summary(pairs(LSM))
+
+# Notes -- need to specify the covariance structure as variance components
+# also, change the df method from kenward-roger to between-within

@@ -15,22 +15,19 @@ output_path = ""
 
 verbose = False
 
-table_list = []
+table_list = ["run-stats-marked-tercile"]
 
-plotting_list = ["subject-tercile-arrows", "group-centering-bars", "group-initial-deviations-bars", "group-midtrial-deviations-bars", "group-initial-pitches-histogram", "group-midtrial-pitches-histogram", "group-combined-centering-bars", "trial-post-pre-scatterplot"]
+plotting_list = ["subject-tercile-arrows", "subject-tercile-arrows-with-error", "group-centering-bars", "group-initial-deviations-bars", "group-midtrial-deviations-bars", "group-initial-pitches-histogram", "group-midtrial-pitches-histogram", "group-pitches-qq", "subject-tercile-trapizoids-with-error"]
 
-test_list = []
+test_list = ["test-of-normality"]
 
 show_figures = True
 print_test_results = True
 
-plot_theme = "classic"
+plot_theme = "dark_background"
 
 remove_outliers = True
-trim = True
 OUTLIER_STD = 2
-
-MIN_TRIALS = 25
 
 def help():
     print("ARGUMENT OVERVIEW")
@@ -41,7 +38,6 @@ def help():
     print("-b --tables=TABLENAMES ... \t generates tables listed out after the tables flag, separated by spaces")
     print("-t --tests=TESTNAMES ... \t runs tests listed out after the tests flag, separated by spaces")
     print("--include-outliers \t\t includes outliers")
-    print("--no-trim \t\t include this flag to prevent trimming of subjects with insufficient good trials")
     print("--hide-figures \t\t\t disables display of figures upon save to disk")
     print("--hide-tests \t\t\t disables display of test results upon save to disk")
     print("--hide \t\t\t\t does not display test results or figures: alias of --hide-figures --hide-tests")
@@ -91,8 +87,6 @@ for argx in range(1, len(args)):
         plot_theme = str(args[argx + 1])
     elif arg == "--include-outliers":
         remove_outliers = False
-    elif arg == "--no-trim":
-        trim = False
 
 if input_path == "":
     print("An input path is required.")
@@ -153,56 +147,29 @@ with open(input_path, newline='') as datacsv:
         trial_data.append([group_list.index(row[0]),subject_list[group_list.index(row[0])].index(row[1]),float(row[2]),float(row[3]),float(row[4]),np.abs(float(row[2])),np.abs(float(row[3])), 0])
 
 printv("reading csv complete")
-        
 
 # because we rely on many overall metrics which rely on all the trials (terciles, for example, and sorting) 
 # we need to wait until all the data is processed before we can generate any figures.
 
 trial_data = np.array(trial_data) # trial data is converted to numpy array
 
+printv(trial_data.shape)
+
 # Remove the outlier **trials** for the entire population
 
-if(trim):
-    printv("Clipping group trials")
+printv("Clipping group trials")
 
-    for group_idx in range(0, len(group_list)):
-        printv("Working on group " + group_list[group_idx])
-        
-        subject_count = len(subject_list[group_idx])
-        
-        subject_cut_list = []
-        
-        for i in range(subject_count):
-            gdata = trial_data[trial_data[:, 0] == group_idx]
-            trial_count = gdata[gdata[:, 1] == i].shape[0]
-            if(trial_count < MIN_TRIALS):
-                printv("Recommend pruning " + subject_list[group_idx][i] + " due to lack of trials. Excluding from analysis...")
-                subject_cut_list.append(i)
-                
-                trial_data = trial_data[np.logical_not(np.logical_and(trial_data[:, 0] == group_idx, trial_data[:, 1] == i))]
-            
-            
-        group_mask = (trial_data[:, 0] == group_idx)
-        # BUG - we are taking the mean of the entire matrix of values, not the deviations column
-        # Thus, this average and standard deviation value that are used for trimming are rather misleading.
-        # it is entirely possible that subject and group number are driving the mean down, which would in turn
-        # trim more of the lower than higher trials.
-        # mean = np.mean(trial_data[group_mask])
-        # std = np.std(trial_data[group_mask])
+for group_idx in range(0, len(group_list)):
+    printv("Working on group " + group_list[group_idx])
+    group_mask = (trial_data[:, 0] == group_idx)
+    mean = np.mean(trial_data[group_mask])
+    std = np.std(trial_data[group_mask])
+    printv("Group mean is " + str(mean) + " with std " + str(std))
+    deletion_mask = group_mask & ((trial_data[:, 2] > mean + std * 3) | (trial_data[:, 2] < mean - std * 3))
+    printv("Removed " + str(deletion_mask.sum()) + " trials...")
+    trial_data = np.delete(trial_data, deletion_mask, axis=0)
 
-        # FIX
-        mean = np.mean(trial_data[group_mask, 2])
-        std = np.std(trial_data[group_mask, 2])
-
-        printv("Group mean is " + str(mean) + " with std " + str(std))
-        deletion_mask = group_mask & ((trial_data[:, 2] >= mean + std * 3) | (trial_data[:, 2] <= mean - std * 3))
-        printv("Removed " + str(deletion_mask.sum()) + " trials...")
-        trial_data = np.delete(trial_data, deletion_mask, axis=0)
-
-        for i, subj_del in enumerate(subject_cut_list):
-            print("Cut " + subject_list[group_idx].pop(subj_del - i))
-
-    printv("Trial clipping successful.")
+printv("Trial clipping successful.")
 
 terciles_data = []
 
@@ -330,12 +297,9 @@ for group_idx in range(0, len(group_list)):
 
 ######################### TESTS ##########################
 printv("running tests...")
-if "test-of-deviations-normality" in test_list:
-    printv("running test of deviation normality")
-    tests.test_of_deviations_normality(group_list, trial_data)
-if "test-of-efficiency-normality" in test_list:
-    printv("running test of efficiency normality")
-    tests.test_of_efficiency_normality(group_list, trial_data)
+if "test-of-normality" in test_list:
+    printv("running test of normality")
+    tests.test_of_normality(group_list, trial_data)
 
 
 printv("tests complete.")
@@ -365,12 +329,7 @@ if plot_theme == "xkcd":
 else:
     plt.style.use(plot_theme)
 
-if "trial-post-pre-scatterplot" in plotting_list:
-    printv("plotting trial post vs. pre scatterplot")
-    fig.trial_post_pre_scatterplot(group_list, trial_data)
-if "group-combined-centering-bars" in plotting_list:
-    printv("plotting group combined centering bars")
-    fig.group_combined_centering_bars(group_list, trial_data)
+
 if "subject-tercile-arrows" in plotting_list:
     printv("plotting subject tercile arrows")
     fig.subject_tercile_arrows(group_list, subject_list, terciles_data)
@@ -380,9 +339,6 @@ if "subject-tercile-arrows-with-error" in plotting_list:
 if "group-centering-bars" in plotting_list:
     printv("plotting group centering bars")
     fig.group_centering_bars(group_list, trial_data)
-if "group-centering-violin" in plotting_list:
-    printv("plotting group centering violin")
-    fig.group_centering_violin(group_list, trial_data)
 if "group-initial-deviations-bars" in plotting_list:
     printv("plotting group starting deviations bars")
     fig.group_initial_deviations_bars(group_list, trial_data)
@@ -404,12 +360,6 @@ if "group-pitches-qq" in plotting_list:
 if "subject-tercile-trapizoids-with-error" in plotting_list:
     printv("plotting subject tercile trapizoids with error")
     fig.subject_tercile_trapizoids_with_error(group_list, subject_list, trial_data)
-if "group-efficiency-scatter" in plotting_list:
-    printv("plotting subject efficiency scatter plot")
-    fig.subject_efficiency_scatter(group_list, trial_data)
-if "group-efficiency-distribution" in plotting_list:
-    printv("plotting subject efficiency scatter plot")
-    fig.subject_efficiency_distribution(group_list, trial_data)
 printv("saving figures to disk....")
 fig.save_figs(output_path)
 tests.save_results(output_path)
@@ -420,4 +370,3 @@ if show_figures:
 if print_test_results:
     tests.print_test_results()
 
-print(trial_data[trial_data[:, 0] == 1].shape)
