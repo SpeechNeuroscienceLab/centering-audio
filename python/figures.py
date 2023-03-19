@@ -2,14 +2,16 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import matplotlib.style as style
+from scipy.stats import norm
 
 
 class StatisticsHelpers:
+    @staticmethod
     def standard_error(data):
         return np.std(data, ddof=1) / np.sqrt(np.size(data))
 
 
-def __default_colormap():
+def __default_group_colormap():
     return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
 
 
@@ -21,7 +23,7 @@ def group_tercile_centering_bars(group_dictionary: dict, dataframe: pd.DataFrame
                                  colormap=None):
     # default colormap settings
     if colormap is None:
-        colormap = __default_colormap()
+        colormap = __default_group_colormap()
 
     group_tercile_centering_bar_figure = plt.figure()
 
@@ -62,7 +64,7 @@ def group_centering_bars(group_dictionary: dict, dataframe: pd.DataFrame,
                          colormap=None):
     # default colormap settings
     if colormap is None:
-        colormap = __default_colormap()
+        colormap = __default_group_colormap()
 
     group_centering_bar_figure = plt.figure()
 
@@ -100,7 +102,7 @@ def group_centering_bars(group_dictionary: dict, dataframe: pd.DataFrame,
 def group_scatter(group_dictionary, dataframe,
                   colormap=None):
     if colormap is None:
-        colormap = __default_colormap()
+        colormap = __default_group_colormap()
 
     group_scatter_figure = plt.figure()
 
@@ -156,6 +158,84 @@ def group_tercile_arrows(group_dictionary, dataframe,
 
     group_tercile_arrows_figure.name = "group_tercile_arrows_figure"
     return group_tercile_arrows_figure
+
+
+def group_pitch_normal(group_dictionary: dict, dataframe: pd.DataFrame, colormap=None, density=10):
+    if colormap is None:
+        colormap = {"InitialPitch": "blue", "EndingPitch": "red"}
+
+    time_windows = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
+
+    group_pitch_normal_figure, axes = plt.subplots(len(group_dictionary), 1, sharex="all")
+
+    # set figure size manually, just for this case
+    group_pitch_normal_figure.tight_layout()
+    group_pitch_normal_figure.subplots_adjust(top=0.90, bottom=0.1)
+
+    limits = (min(dataframe["InitialPitch"].min(), dataframe["EndingPitch"].min()),
+              max(dataframe["InitialPitch"].max(), dataframe["EndingPitch"].max()))
+
+    for group_idx, (group, subjects) in enumerate(group_dictionary.items()):
+        # place each group on its own subplot
+        axis = axes[group_idx]
+        group_data = dataframe[dataframe["Group"] == group]
+
+        axis.set_ylabel(group)
+        axis.set_yticks([])
+        axis.set_xlim(limits)
+
+        for index, label in time_windows.items():
+            mean, std = (np.mean(group_data[index]), np.std(group_data[index]))
+            # density ensures that rescaling the figure's x-axis won't ruin our smooth-ness of our plot
+            axis.fill(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) / density)),
+                      norm.pdf(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) / density)),
+                               mean, std),
+                      color=colormap[index], alpha=0.4, label=label)
+
+        axis.legend(loc="upper left")
+
+    # only label the bottom-most value
+    axes[-1].set_xlabel("Pitch (Cents)")
+    group_pitch_normal_figure.suptitle("Group Pitch Normal Distributions", fontweight="bold")
+    group_pitch_normal_figure.name = "group_pitch_normal"
+    return group_pitch_normal_figure
+
+
+def group_pitch_histogram(group_dictionary: dict, dataframe: pd.DataFrame, bin_width=30, colormap=None):
+    if colormap is None:
+        colormap = __default_group_colormap()
+
+    time_windows = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
+
+    group_pitch_histogram_figure, axes = plt.subplots(len(group_dictionary) * len(time_windows), 1, sharex="all")
+    axes_iter = iter(axes)
+
+    # set figure size manually, just for this case
+    group_pitch_histogram_figure.set_size_inches(5, 8)
+    group_pitch_histogram_figure.tight_layout()
+    group_pitch_histogram_figure.subplots_adjust(top=0.93, bottom=0.1)
+
+    limits = (min(dataframe["InitialPitch"].min(), dataframe["EndingPitch"].min()),
+              max(dataframe["InitialPitch"].max(), dataframe["EndingPitch"].max()))
+
+    # create even zero aligned bins
+    bins = np.arange(limits[0], limits[1], bin_width)
+
+    for group_idx, (group, subjects) in enumerate(group_dictionary.items()):
+        for index, label in time_windows.items():
+            axis = next(axes_iter)
+            group_data = dataframe[dataframe["Group"] == group]
+
+            axis.hist(group_data[index], color=colormap[group], bins=bins, alpha=0.75)
+
+            axis.set_ylabel(f"{group}\n{label}")
+            axis.set_xlim(limits)
+            axis.set_yticks([])
+
+    group_pitch_histogram_figure.suptitle("Group Pitch Distributions", fontweight="bold")
+    group_pitch_histogram_figure.name = "group_pitch_histogram"
+    return group_pitch_histogram_figure
+
 
 # global settings
 __global_styles()

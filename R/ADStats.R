@@ -1,6 +1,17 @@
 library(nlme)
-ADtable <- read.csv("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/post-analysis/centering-analysis.csv", header=TRUE, stringsAsFactors=FALSE)
+library(lsmeans)
+run = "manual_exclude_2_by_group"
+ADtable <- read.csv(paste("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/post-analysis/",  run, "/centering-analysis.csv", sep=""), header=TRUE, stringsAsFactors=FALSE)
 ADLME <- lme(Centering ~ Group * Tercile, random = ~1|Subject, data=ADtable, cor=corCompSymm())
 anova(ADLME)
 LSM <- lsmeans(ADLME, ~ Group * Tercile)
 summary(pairs(LSM))
+
+# Analysis of Variance: Kruskal-Wallis Test
+groups = unique(ADtable$Group)
+for (group in groups) {
+	group_data <- ADtable[ADtable$Group == group, ]
+	print(group)
+	print(kruskal.test(Centering ~ Tercile, data = group_data))
+}
+
