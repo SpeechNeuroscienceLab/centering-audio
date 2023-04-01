@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
+import matplotlib.style as style
+import matplotlib.patches as patches
 import pandas as pd
 import numpy as np
-import matplotlib.style as style
 from scipy.stats import norm
+from experiment import Experiment
 
 
 class StatisticsHelpers:
@@ -11,112 +13,145 @@ class StatisticsHelpers:
         return np.std(data, ddof=1) / np.sqrt(np.size(data))
 
 
+class Annotations:
+    @staticmethod
+    def bar_significance(axes: plt.axes, x, y, label: str, rise=0):
+        axes.plot([x[0], x[0], x[1], x[1]], [y[0], max(y) + rise, max(y) + rise, y[1]],
+                  color=defaults["annotation-color"])
+        # add tick mark
+        axes.plot([np.mean(x)] * 2,
+                  [max(y) + rise, max(y) + rise + defaults["annotation-vertical-padding"]],
+                  color=defaults["annotation-color"])
+        axes.text(np.mean(x), max(y) + rise + 2 * defaults["annotation-vertical-padding"], label,
+                  horizontalalignment="center",
+                  size=defaults["annotation-text-size"], )
+
+
 def __default_group_colormap():
     return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+
+
+defaults = {
+    "line-width": 1.5,
+    # annotations
+    "annotation-text-size": 16,
+    "annotation-color": "black",
+    "bar-significance-rise": 2,
+    "annotation-vertical-padding": 0.5,
+    # bar plots
+    "bar-group-spacing": 0.25,
+    # error bar
+    "error-color": "black",
+    "error-cap-size": 10,
+    "error-line-style": ''
+}
 
 
 def __global_styles():
     style.use('classic')
 
 
-def group_tercile_centering_bars(group_dictionary: dict, dataframe: pd.DataFrame,
-                                 colormap=None):
-    # default colormap settings
-    if colormap is None:
-        colormap = __default_group_colormap()
+class Figure:
+    def __init__(self, colormap: dict = None):
+        if colormap is None:
+            self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+        else:
+            self.colormap = colormap
 
-    group_tercile_centering_bar_figure = plt.figure()
+        self.figure, self.axes = plt.subplots()
+        self.name = None
 
-    # formatting options
-    plt.title("Average Peripheral Centering (Cents)")
+    # All plotting functions must have a render function
+    def render(self):
+        pass
 
-    bar_labels = []
-    bar_heights = []
-    bar_colors = []
-    error_heights = []
-
-    for group, _ in group_dictionary.items():
-        group_data = dataframe[dataframe["Group"] == group]
-        for tercile in group_data["Tercile"].drop_duplicates():
-            bar_labels.append(f"{group}\n{tercile}")
-            bar_colors.append(colormap[group])
-
-            tercile_data = group_data[group_data["Tercile"] == tercile]
-            bar_heights.append(np.nanmean(tercile_data["Centering"]))
-            error_heights.append(StatisticsHelpers.standard_error(tercile_data["Centering"]))
-
-    # draw the figure
-    bars = plt.bar(range(len(bar_labels)), bar_heights)
-    plt.errorbar(range(len(bar_labels)), bar_heights, yerr=error_heights, color="black", capsize=5, ls='')
-
-    # set the color of the bars
-    for i, bar in enumerate(bars):
-        bars[i].set_color(bar_colors[i])
-
-    # add the labels
-    plt.xticks(range(len(bar_labels)), bar_labels)
-
-    group_tercile_centering_bar_figure.name = "group_tercile_centering_bar_figure"
-    return group_tercile_centering_bar_figure
+    def save(self, output_directory: str):
+        self.figure.savefig(f"{output_directory}/{self.name}.png")
 
 
-def group_centering_bars(group_dictionary: dict, dataframe: pd.DataFrame,
-                         colormap=None):
-    # default colormap settings
-    if colormap is None:
-        colormap = __default_group_colormap()
+class GroupTercileCenteringBars(Figure):
+    def __init__(self, experiment: Experiment, plot_order: list = None,
+                 colormap: dict = None, render: bool = True):
+        Figure.__init__(self, colormap=colormap)
 
-    group_centering_bar_figure = plt.figure()
+        self.bar_x = None
+        self.bar_y = None
+        self.experiment = experiment
 
-    # formatting options
-    plt.title("Average Peripheral Centering (Cents)")
+        self.axes.set_title("Average Peripheral Centering (Cents)")
+        self.name = "group_tercile_centering_bar_figure"
 
-    bar_labels = []
-    bar_heights = []
-    bar_colors = []
-    error_heights = []
+        self.fill_map = {
+            "UPPER": ' ',
+            "LOWER": '/'
+        }
 
-    for group, _ in group_dictionary.items():
-        group_data = dataframe[dataframe["Group"] == group]
-        bar_labels.append(group)
-        bar_colors.append(colormap[group])
+        self.label_map = {
+            "UPPER": "Lowering Pitch",
+            "LOWER": "Raising Pitch"
+        }
 
-        bar_heights.append(np.nanmean(group_data["Centering"]))
-        error_heights.append(StatisticsHelpers.standard_error(group_data["Centering"]))
+        self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
 
-    # draw the figure
-    bars = plt.bar(range(len(bar_labels)), bar_heights)
-    plt.errorbar(range(len(bar_labels)), bar_heights, yerr=error_heights, color="black", capsize=5, ls='')
+        if render:
+            self.render()
 
-    # set the color of the bars
-    for i, bar in enumerate(bars):
-        bars[i].set_color(bar_colors[i])
+    def render(self):
+        # (label, height, error, color, fill-style)
+        bars = []
 
-    # add the labels
-    plt.xticks(range(len(bar_labels)), bar_labels)
+        for group in self.plot_order:
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+            for tercile in group_data["Tercile"].drop_duplicates():
+                tercile_data = group_data[group_data["Tercile"] == tercile]
+                bars.append({
+                    "group": group,
+                    "label": tercile,
+                    "height": np.nanmean(tercile_data["Centering"]),
+                    "error": StatisticsHelpers.standard_error(tercile_data["Centering"]),
+                    "color": self.colormap[group],
+                    "fill-style": self.fill_map[tercile]
+                })
 
-    group_centering_bar_figure.name = "group_centering_bar_figure"
-    return group_centering_bar_figure
+        self.bar_x = np.arange(len(bars), dtype=np.float64)
+        self.bar_y = [bar["height"] + bar["error"] for bar in bars]
 
+        # insert spaces between groups
+        for i in range(len(bars)):
+            if i > 0 and bars[i - 1]["group"] != bars[i]["group"]:
+                self.bar_x[i:] += defaults["bar-group-spacing"]
 
-def group_scatter(group_dictionary, dataframe,
-                  colormap=None):
-    if colormap is None:
-        colormap = __default_group_colormap()
+        self.axes.bar(x=self.bar_x,
+                      height=[bar["height"] for bar in bars],
+                      color=[bar["color"] for bar in bars],
+                      hatch=[bar["fill-style"] for bar in bars]
+                      )
 
-    group_scatter_figure = plt.figure()
+        self.axes.set_xticks(ticks=self.bar_x,
+                             labels=[self.label_map[bar["label"]] for bar in bars])
+        self.axes.tick_params(axis='x', length=0)
 
-    # formatting options
-    plt.title("Peripheral Centering (Cents)")
+        self.axes.set_ylabel("Centering (Cents)")
 
-    for group, _ in group_dictionary.items():
-        group_data = dataframe[dataframe["Group"] == group]
-        plt.scatter(group_data["InitialPitch"], group_data["EndingPitch"], label=group, color=colormap[group])
+        self.axes.errorbar(x=self.bar_x,
+                           y=[bar["height"] for bar in bars],
+                           yerr=[bar["error"] for bar in bars],
+                           color=defaults["error-color"],
+                           elinewidth=defaults["line-width"],
+                           capthick=defaults["line-width"],
+                           capsize=defaults["error-cap-size"],
+                           ls=defaults["error-line-style"])
 
-    plt.legend()
+        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=group)
+                                  for group in self.experiment.subjects],
+                         loc="upper left")
 
-    group_scatter_figure.name = "group_scatter_figure"
-    return group_scatter_figure
+    def annotate_significance(self, x, label):
+        Annotations.bar_significance(axes=self.axes,
+                                     x=[self.bar_x[i] for i in x],
+                                     y=[self.bar_y[i] + defaults["annotation-vertical-padding"] for i in x],
+                                     rise=defaults["bar-significance-rise"],
+                                     label=label)
 
 
 def group_tercile_arrows(group_dictionary, dataframe,
@@ -135,8 +170,7 @@ def group_tercile_arrows(group_dictionary, dataframe,
         axis = axes[group_idx]
         group_data = dataframe[dataframe["Group"] == group]
         for subject_idx, subject in enumerate(subjects):
-            # TODO: make a cleaner way of iterating through subjects to get the subject name
-            subject_data = group_data[group_data["Subject"] == f"{group.replace(' ', '')}{subject_idx}"]
+            subject_data = group_data[group_data["Subject"] == subject]
 
             for tercile in subject_data["Tercile"].drop_duplicates():
                 tercile_data = subject_data[subject_data["Tercile"] == tercile]

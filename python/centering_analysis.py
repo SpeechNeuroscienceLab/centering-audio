@@ -1,35 +1,11 @@
 # import statements
 import numpy as np
-import pandas as pd
-import figures
+from experiment import Experiment
 from pathlib import Path
+from tables import Table
+import figures
 
-
-class Experiment:
-
-    def __init__(self, df: pd.DataFrame):
-        self.df = df
-        self.subjects = {}
-
-    @classmethod
-    def from_csv(cls, filepath):
-        experiment = cls(pd.read_csv(filepath))
-        experiment.update_subjects()
-        return experiment
-
-    def copy(self):
-        # do a deep copy
-        copy = Experiment(self.df.copy())
-        copy.subjects = self.subjects.copy()
-        return copy
-
-    def update_subjects(self, column_markers=("Group Name", "Subject Name")):
-        for group in self.df[column_markers[0]].drop_duplicates():
-            self.subjects[group] = [s for s in
-                                    self.df[column_markers[1]][self.df[column_markers[0]] == group].drop_duplicates()]
-
-    def to_csv(self, filepath):
-        self.df.to_csv(filepath)
+import matplotlib.pyplot as plt
 
 
 class CenteringAnalysis:
@@ -114,13 +90,18 @@ class CenteringAnalysis:
         @staticmethod
         def trial_index(experiment: Experiment, inplace=True, indexing=("Group Name", "Subject Name", "Trial Index")):
             updated_experiment = experiment if inplace else experiment.copy()
+
+            # add the trial index column if it doesn't exist already
+            if indexing[2] not in updated_experiment.df:
+                updated_experiment.df[indexing[2]] = -1
+
             for group, subjects in updated_experiment.subjects.items():
                 for subject in subjects:
                     subject_trials = updated_experiment.df[(updated_experiment.df[indexing[0]] == group)
                                                            & (updated_experiment.df[indexing[1]] == subject)]
 
                     # set the original index of each trial
-                    subject_trials = subject_trials.assign(**{indexing[2]: np.arange(subject_trials.shape[0])})
+                    subject_trials = subject_trials.assign(**{indexing[2]: np.arange(1, subject_trials.shape[0] + 1)})
 
                     # save changes to the original dataframe
                     updated_experiment.df.update(subject_trials)
@@ -184,7 +165,7 @@ COLUMN_MAP = {
     "Ending Pitch (Cents)": "EndingPitch",
     "Centering (Cents)": "Centering",
     "Trial Tercile": "Tercile",
-    "Trial Index": "Index"
+    "Trial Index": "Trial"
 }
 
 
@@ -192,11 +173,11 @@ def main():
     experiment = Experiment.from_csv(INPUT_PATH)
     print(f"Trials Parsed: {experiment.df.shape[0]}")
 
-    for run in ["auto_trimmed", "manual_exclude"]:
-        for std_threshold in [2, 1000]:
-            for trim_bundle in ["group", "subject"]:
+    for run in ["manual_exclude"]:
+        for std_threshold in [2]:
+            for trim_bundle in ["group"]:
                 # print a horizontal line
-                print("-"*80)
+                print("-" * 80)
                 print(f"Using trimming method '{run}' within each {trim_bundle} with std factor {std_threshold}")
                 # for auto-trimming
                 trimmed_experiment = experiment.copy()
@@ -215,11 +196,24 @@ def main():
                 print(f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}")
 
                 CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
+                full_subject_ids = trimmed_experiment.subjects.copy()
                 CenteringAnalysis.rename_subjects(trimmed_experiment)
+                trimmed_experiment.update_subjects()
+
+                # show rename table for subjects
+                print("*Subject Rename Table*")
+                for group in trimmed_experiment.subjects:
+                    print(f"{group}:")
+                    for subject_index, subject in enumerate(trimmed_experiment.subjects[group]):
+                        print(f"\t{full_subject_ids[group][subject_index]} -> {subject}")
+
                 trimmed_experiment.df.rename(columns=COLUMN_MAP, inplace=True)
 
                 peripheral_experiment = CenteringAnalysis.drop_central_trials(trimmed_experiment,
                                                                               inplace=False, indexing="Tercile")
+
+                CenteringAnalysis.ComputeColumn.trial_index(peripheral_experiment, inplace=True,
+                                                            indexing=("Group", "Subject", "Trial"))
 
                 output_folder = f"{OUTPUT_PATH}/{run}_{std_threshold}_by_{trim_bundle}/"
                 # Create the output folder if it doesn't exist already
@@ -231,19 +225,27 @@ def main():
                 for group, subjects in peripheral_experiment.subjects.items():
                     print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
 
+                print(f"Generating Figures...")
                 fig_list = [
-                            figures.group_pitch_normal(trimmed_experiment.subjects, trimmed_experiment.df),
-                            figures.group_pitch_histogram(trimmed_experiment.subjects, trimmed_experiment.df),
-                            figures.group_tercile_centering_bars(peripheral_experiment.subjects,
-                                                                 peripheral_experiment.df),
-                            figures.group_centering_bars(peripheral_experiment.subjects, peripheral_experiment.df),
-                            figures.group_tercile_arrows(trimmed_experiment.subjects, trimmed_experiment.df),
-                            figures.group_scatter(trimmed_experiment.subjects, trimmed_experiment.df)
-                            ]
+                ]
 
                 print(f"Saving figures to disk...")
                 for figure in fig_list:
                     figure.savefig(f"{output_folder}{figure.name}.png")
+
+                print("Generating Tables...")
+                Table.generate_pitch_distribution_table(peripheral_experiment) \
+                    .to_csv(f"{output_folder}pitch_distribution_table.csv", index=False)
+                Table.generate_pitch_variance_table(peripheral_experiment) \
+                    .to_csv(f"{output_folder}peripheral_pitch_variance_table.csv", index=False)
+                Table.generate_pitch_variance_table(trimmed_experiment) \
+                    .to_csv(f"{output_folder}pitch_variance_table.csv", index=False)
+
+                bar_plot = figures.GroupTercileCenteringBars(peripheral_experiment,
+                                                             plot_order=["Controls", "AD Patients"])
+                bar_plot.annotate_significance(x=[2, 3], label="⁎")
+
+                plt.show()
 
 
 if __name__ == "__main__":
