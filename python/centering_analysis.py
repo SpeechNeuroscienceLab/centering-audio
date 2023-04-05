@@ -3,6 +3,7 @@ import numpy as np
 from experiment import Experiment
 from pathlib import Path
 import figures
+import extra
 
 
 class CenteringAnalysis:
@@ -188,6 +189,9 @@ def main():
 
     print(f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}")
 
+    # Run extra features (must be before we rename our subjects
+    PIDN_df = extra.load_pidn_table(trimmed_experiment)
+
     # compute terciles
     CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
 
@@ -224,14 +228,45 @@ def main():
         print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
 
     print(f"Generating Figures...")
-    figure_list = [figures.SampleTrials(experiment),
-                   figures.GroupPitchNormal(experiment,
-                                            plot_order=["Controls", "AD Patients"]),
-                   figures.GroupTercileArrows(trimmed_experiment,
-                                              plot_order=["Controls", "AD Patients"]),
-                   figures.GroupTercileCenteringBars(peripheral_experiment,
-                                                     plot_order=["Controls", "AD Patients"])
-                   ]
+    figure_list = [figures.SampleTrials(
+        motion_points=[
+            [
+                [
+                    [0, 50, 100, 150, 200],
+                    [100, 110, 80, 30, 35]
+                ],
+                [
+                    [0, 50, 100, 150, 200],
+                    [-200, -150, 0, 75, 50]
+                ],
+            ],
+            [
+                [
+                    [0, 50, 100, 150, 200],
+                    [-50, -70, -110, -130, -200]
+                ],
+                [
+                    [0, 50, 100, 150, 200],
+                    [-50, 20, 0, 50, 100]
+                ],
+            ]
+        ], titles=[
+            [
+                "Positive Downward Centering",
+                "Positive Upward Centering"
+            ],
+            [
+                "Negative Downward Centering",
+                "Negative Upward Centering"
+            ]
+        ]),
+        figures.GroupPitchNormal(experiment,
+                                 plot_order=["Controls", "AD Patients"]),
+        figures.GroupTercileArrows(trimmed_experiment,
+                                   plot_order=["Controls", "AD Patients"]),
+        figures.GroupTercileCenteringBars(peripheral_experiment,
+                                          plot_order=["Controls", "AD Patients"])
+    ]
 
     # manually set the normal distribution limits
     figure_list[1].axes[-1].set_xlim([-300, 300])

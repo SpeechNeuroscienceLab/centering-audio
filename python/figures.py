@@ -68,14 +68,15 @@ def __global_styles():
 
 
 class Figure:
-    def __init__(self, colormap: dict = None, subplots=(1, 1), shared_axis=("none", "none")):
+    def __init__(self, colormap: dict = None, figsize=(6.4, 4.8), subplots=(1, 1), shared_axis=("none", "none")):
         if colormap is None:
             self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
         else:
             self.colormap = colormap
 
         self.figure, self.axes = plt.subplots(nrows=subplots[0], ncols=subplots[1],
-                                              sharex=shared_axis[0], sharey=shared_axis[1])
+                                              sharex=shared_axis[0], sharey=shared_axis[1],
+                                              figsize=figsize)
         self.name = None
 
     # All plotting functions must have a render function
@@ -222,16 +223,67 @@ class GroupTercileArrows(Figure):
 
 
 class SampleTrials(Figure):
-    def __init__(self, render: bool = True):
-        Figure.__init__(self, subplots=(2,2))
+    def __init__(self, motion_points: list, titles: list, render: bool = True):
+        Figure.__init__(self, subplots=(2, 2), figsize=(12, 9))
 
         self.name = "sample_trials"
+        self.motion_points = motion_points
+        self.titles = titles
+
+        # colormap is a array for this figure
+        self.colormap = ["green", "red"]
 
         if render:
             self.render()
 
     def render(self):
         self.figure.tight_layout()
+        self.figure.subplots_adjust(wspace=0.2, hspace=0.2, left=0.075, bottom=0.06)
+
+        for row in range(self.axes.shape[0]):
+            for col in range(self.axes.shape[1]):
+                axis = self.axes[row, col]
+                motion_points = self.motion_points[row][col]
+
+                # arbitrary deg polynomial fit to data
+                smooth_motion_function = np.poly1d(np.polyfit(motion_points[0], motion_points[1], 3))
+
+                axis.set_title(self.titles[row][col])
+                axis.set_xlim([0, 200])
+                axis.set_ylabel("Pitch (cents)")
+                axis.set_xlabel("Time (ms)")
+
+                plot_domain = np.linspace(0, 200, 100)
+
+                smooth_motion_points = smooth_motion_function(plot_domain)
+
+                # add noise from gaussian
+                noisy_motion_points = smooth_motion_points + np.random.normal(smooth_motion_points, 15)
+
+                axis.plot(plot_domain, noisy_motion_points, color=self.colormap[row])
+
+                # add the "center" line
+                axis.plot(plot_domain, np.zeros(plot_domain.shape), color="black", linewidth=2)
+
+                # compute the window averages
+                mean_pitches = []
+                windows = [(0, 50), (150, 200)]
+                for window in windows:
+                    mean_pitches.append(np.mean(noisy_motion_points[(plot_domain >= window[0])
+                                                                    * (plot_domain <= window[1])]))
+                # add dashed lines for mean pitches
+                axis.plot([0, 100], [mean_pitches[0]] * 2, linestyle="dashed", color="gray")
+                axis.plot([100, 200], [mean_pitches[1]] * 2, linestyle="dashed", color="gray")
+
+                # plot the triangle
+                coordinates = np.array([[50, mean_pitches[0]], [100, mean_pitches[1]], [150, mean_pitches[0]]])
+
+                axis.fill(coordinates[:, 0], coordinates[:, 1],
+                          color=self.colormap[row],
+                          alpha=0.5,
+                          edgecolor="black")
+
+                axis.scatter([0, 0], [10, -10], visible=False)
 
 
 class GroupPitchNormal(Figure):
