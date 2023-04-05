@@ -122,8 +122,7 @@ class GroupTercileCenteringBars(Figure):
                     "label": tercile,
                     "height": np.nanmean(tercile_data["Centering"]),
                     "error": StatisticsHelpers.standard_error(tercile_data["Centering"]),
-                    "color": ColorUtils.alter_brightness(self.colormap[group],
-                                                         tercile_index*defaults["bar-lighten-factor"]),
+                    "color": self.colormap[group],
                 })
 
         self.bar_x = np.arange(len(bars), dtype=np.float64)
@@ -138,6 +137,7 @@ class GroupTercileCenteringBars(Figure):
                       height=[bar["height"] for bar in bars],
                       color=[bar["color"] for bar in bars],
                       alpha=0.9,
+                      hatch=["/", " ", "/", ""]
                       )
 
         self.axes.set_xticks(ticks=self.bar_x,
