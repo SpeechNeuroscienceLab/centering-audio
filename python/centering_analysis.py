@@ -2,10 +2,7 @@
 import numpy as np
 from experiment import Experiment
 from pathlib import Path
-from tables import Table
 import figures
-
-import matplotlib.pyplot as plt
 
 
 class CenteringAnalysis:
@@ -157,7 +154,9 @@ class CenteringAnalysis:
 
 # input args
 INPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/analyze_audio.csv"
-OUTPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/post-analysis"
+OUTPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/publication/"
+USER_DATA_PATH = "/Users/anantajit/Documents/Research/UCSF/mydata/me"
+
 COLUMN_MAP = {
     "Group Name": "Group",
     "Subject Name": "Subject",
@@ -173,79 +172,79 @@ def main():
     experiment = Experiment.from_csv(INPUT_PATH)
     print(f"Trials Parsed: {experiment.df.shape[0]}")
 
-    for run in ["manual_exclude"]:
-        for std_threshold in [2]:
-            for trim_bundle in ["group"]:
-                # print a horizontal line
-                print("-" * 80)
-                print(f"Using trimming method '{run}' within each {trim_bundle} with std factor {std_threshold}")
-                # for auto-trimming
-                trimmed_experiment = experiment.copy()
-                CenteringAnalysis.Trim.by_subject_trial_count(trimmed_experiment)
-                if trim_bundle == "group":
-                    CenteringAnalysis.Trim.by_group_initial_pitch_distribution(trimmed_experiment,
-                                                                               std_threshold=std_threshold)
-                elif trim_bundle == "subject":
-                    CenteringAnalysis.Trim.by_subject_initial_pitch_distribution(trimmed_experiment,
-                                                                                 std_threshold=std_threshold)
+    run = "manual_exclude"
+    std_threshold = 2
+    trim_bundle = "group"
 
-                # for manual trimming
-                if run == "manual_exclude":
-                    CenteringAnalysis.Trim.by_subject_name(trimmed_experiment, exclude=[("AD Patients", "20160128_1")])
+    print(f"Using trimming method '{run}' within each {trim_bundle} with std factor {std_threshold}")
 
-                print(f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}")
+    # for auto-trimming
+    trimmed_experiment = experiment.copy()
+    CenteringAnalysis.Trim.by_subject_trial_count(trimmed_experiment)
+    CenteringAnalysis.Trim.by_group_initial_pitch_distribution(trimmed_experiment, std_threshold=std_threshold)
 
-                CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
-                full_subject_ids = trimmed_experiment.subjects.copy()
-                CenteringAnalysis.rename_subjects(trimmed_experiment)
-                trimmed_experiment.update_subjects()
+    # manually exclude subjects
+    CenteringAnalysis.Trim.by_subject_name(trimmed_experiment, exclude=[("AD Patients", "20160128_1")])
 
-                # show rename table for subjects
-                print("*Subject Rename Table*")
-                for group in trimmed_experiment.subjects:
-                    print(f"{group}:")
-                    for subject_index, subject in enumerate(trimmed_experiment.subjects[group]):
-                        print(f"\t{full_subject_ids[group][subject_index]} -> {subject}")
+    print(f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}")
 
-                trimmed_experiment.df.rename(columns=COLUMN_MAP, inplace=True)
+    # compute terciles
+    CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
 
-                peripheral_experiment = CenteringAnalysis.drop_central_trials(trimmed_experiment,
-                                                                              inplace=False, indexing="Tercile")
+    # rename subjects
+    full_subject_ids = trimmed_experiment.subjects.copy()
+    CenteringAnalysis.rename_subjects(trimmed_experiment)
+    trimmed_experiment.update_subjects()
 
-                CenteringAnalysis.ComputeColumn.trial_index(peripheral_experiment, inplace=True,
-                                                            indexing=("Group", "Subject", "Trial"))
+    # show rename table for subjects
+    print("*Subject Rename Table*")
+    for group in trimmed_experiment.subjects:
+        print(f"{group}:")
+        for subject_index, subject in enumerate(trimmed_experiment.subjects[group]):
+            print(f"\t{full_subject_ids[group][subject_index]} -> {subject}")
 
-                output_folder = f"{OUTPUT_PATH}/{run}_{std_threshold}_by_{trim_bundle}/"
-                # Create the output folder if it doesn't exist already
-                Path(output_folder).mkdir(parents=True, exist_ok=True)
+    # rename columns
+    experiment.df.rename(columns=COLUMN_MAP, inplace=True)
+    trimmed_experiment.df.rename(columns=COLUMN_MAP, inplace=True)
 
-                peripheral_experiment.to_csv(f"{output_folder}centering-analysis.csv")
-                print(f"Wrote data table to '{output_folder}centering-analysis.csv'")
+    # separate into only peripheral trials
+    peripheral_experiment = CenteringAnalysis.drop_central_trials(trimmed_experiment,
+                                                                  inplace=False, indexing="Tercile")
+    # compute trial indicies for peripheral trials
+    CenteringAnalysis.ComputeColumn.trial_index(peripheral_experiment, inplace=True,
+                                                indexing=("Group", "Subject", "Trial"))
 
-                for group, subjects in peripheral_experiment.subjects.items():
-                    print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
+    output_folder = OUTPUT_PATH
+    # Create the output folder if it doesn't exist already
+    Path(output_folder).mkdir(parents=True, exist_ok=True)
+    peripheral_experiment.to_csv(f"{output_folder}centering-analysis.csv")
+    print(f"Wrote data table to '{output_folder}centering-analysis.csv'")
 
-                print(f"Generating Figures...")
-                fig_list = [
-                ]
+    for group, subjects in peripheral_experiment.subjects.items():
+        print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
 
-                print(f"Saving figures to disk...")
-                for figure in fig_list:
-                    figure.savefig(f"{output_folder}{figure.name}.png")
+    print(f"Generating Figures...")
+    figure_list = [figures.SampleTrials(experiment),
+                   figures.GroupPitchNormal(experiment,
+                                            plot_order=["Controls", "AD Patients"]),
+                   figures.GroupTercileArrows(trimmed_experiment,
+                                              plot_order=["Controls", "AD Patients"]),
+                   figures.GroupTercileCenteringBars(peripheral_experiment,
+                                                     plot_order=["Controls", "AD Patients"])
+                   ]
 
-                print("Generating Tables...")
-                Table.generate_pitch_distribution_table(peripheral_experiment) \
-                    .to_csv(f"{output_folder}pitch_distribution_table.csv", index=False)
-                Table.generate_pitch_variance_table(peripheral_experiment) \
-                    .to_csv(f"{output_folder}peripheral_pitch_variance_table.csv", index=False)
-                Table.generate_pitch_variance_table(trimmed_experiment) \
-                    .to_csv(f"{output_folder}pitch_variance_table.csv", index=False)
+    # manually set the normal distribution limits
+    figure_list[1].axes[-1].set_xlim([-300, 300])
+    for axis in figure_list[1].axes:
+        axis.set_ylim([0, 0.006])
+    # add significance annotation
+    figure_list[3].annotate_significance(x=[2, 3], label="⁎")
 
-                bar_plot = figures.GroupTercileCenteringBars(peripheral_experiment,
-                                                             plot_order=["Controls", "AD Patients"])
-                bar_plot.annotate_significance(x=[2, 3], label="⁎")
-
-                plt.show()
+    print(f"Saving figures to disk...")
+    for i, figure in enumerate(figure_list):
+        if figure is not None:
+            figure.name = f"figure_{i}"
+            figure.save(output_folder)
 
 
 if __name__ == "__main__":

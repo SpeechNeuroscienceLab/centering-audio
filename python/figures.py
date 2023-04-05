@@ -1,10 +1,22 @@
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 import matplotlib.patches as patches
+import matplotlib.colors as colors
+import colorsys
 import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from experiment import Experiment
+
+
+class ColorUtils:
+    @staticmethod
+    def alter_brightness(color, scale: float):
+        assert -1 <= scale <= 1
+        color_hls = colorsys.rgb_to_hls(*colors.to_rgb(colors.cnames[color] if color in colors.cnames else color))
+        return colorsys.hls_to_rgb(color_hls[0],
+                                   float(np.clip(color_hls[1] * (1 + scale), 0, 1)),
+                                   color_hls[2])
 
 
 class StatisticsHelpers:
@@ -40,10 +52,14 @@ defaults = {
     "annotation-vertical-padding": 0.5,
     # bar plots
     "bar-group-spacing": 0.25,
+    "bar-lighten-factor": -0.2,
     # error bar
     "error-color": "black",
     "error-cap-size": 10,
-    "error-line-style": ''
+    "error-line-style": '',
+    # normal distribution
+    "normal-dist-density": 1,
+    "hist-outline-color": "black"
 }
 
 
@@ -52,13 +68,14 @@ def __global_styles():
 
 
 class Figure:
-    def __init__(self, colormap: dict = None):
+    def __init__(self, colormap: dict = None, subplots=(1, 1), shared_axis=("none", "none")):
         if colormap is None:
             self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
         else:
             self.colormap = colormap
 
-        self.figure, self.axes = plt.subplots()
+        self.figure, self.axes = plt.subplots(nrows=subplots[0], ncols=subplots[1],
+                                              sharex=shared_axis[0], sharey=shared_axis[1])
         self.name = None
 
     # All plotting functions must have a render function
@@ -81,11 +98,6 @@ class GroupTercileCenteringBars(Figure):
         self.axes.set_title("Average Peripheral Centering (Cents)")
         self.name = "group_tercile_centering_bar_figure"
 
-        self.fill_map = {
-            "UPPER": ' ',
-            "LOWER": '/'
-        }
-
         self.label_map = {
             "UPPER": "Lowering Pitch",
             "LOWER": "Raising Pitch"
@@ -102,15 +114,15 @@ class GroupTercileCenteringBars(Figure):
 
         for group in self.plot_order:
             group_data = self.experiment.df[self.experiment.df["Group"] == group]
-            for tercile in group_data["Tercile"].drop_duplicates():
+            for tercile_index, tercile in enumerate(group_data["Tercile"].drop_duplicates()):
                 tercile_data = group_data[group_data["Tercile"] == tercile]
                 bars.append({
                     "group": group,
                     "label": tercile,
                     "height": np.nanmean(tercile_data["Centering"]),
                     "error": StatisticsHelpers.standard_error(tercile_data["Centering"]),
-                    "color": self.colormap[group],
-                    "fill-style": self.fill_map[tercile]
+                    "color": ColorUtils.alter_brightness(self.colormap[group],
+                                                         tercile_index*defaults["bar-lighten-factor"]),
                 })
 
         self.bar_x = np.arange(len(bars), dtype=np.float64)
@@ -124,7 +136,7 @@ class GroupTercileCenteringBars(Figure):
         self.axes.bar(x=self.bar_x,
                       height=[bar["height"] for bar in bars],
                       color=[bar["color"] for bar in bars],
-                      hatch=[bar["fill-style"] for bar in bars]
+                      alpha=0.9,
                       )
 
         self.axes.set_xticks(ticks=self.bar_x,
@@ -154,85 +166,143 @@ class GroupTercileCenteringBars(Figure):
                                      label=label)
 
 
-def group_tercile_arrows(group_dictionary, dataframe,
-                         colormap=None, hide_names=True):
-    if colormap is None:
-        colormap = {"UPPER": "black", "CENTRAL": "grey", "LOWER": "black"}
+class GroupTercileArrows(Figure):
+    def __init__(self, experiment: Experiment, plot_order: list = None,
+                 colormap: dict = None, render: bool = True):
+        Figure.__init__(self, colormap=colormap, subplots=(1, len(experiment.subjects)))
 
-    group_tercile_arrows_figure, axes = plt.subplots(1, len(group_dictionary))
+        self.experiment = experiment
+        self.name = "group_tercile_arrows_figure"
 
-    # set figure size manually, just for this case
-    group_tercile_arrows_figure.set_size_inches(9, 5)
-    group_tercile_arrows_figure.tight_layout()
-    group_tercile_arrows_figure.subplots_adjust(bottom=0.1, left=0.06)
+        self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
 
-    for group_idx, (group, subjects) in enumerate(group_dictionary.items()):
-        axis = axes[group_idx]
-        group_data = dataframe[dataframe["Group"] == group]
-        for subject_idx, subject in enumerate(subjects):
-            subject_data = group_data[group_data["Subject"] == subject]
+        self.opacity_map = {
+            "UPPER": 0.75,
+            "CENTRAL": 0.5,
+            "LOWER": 0.75
+        }
 
-            for tercile in subject_data["Tercile"].drop_duplicates():
-                tercile_data = subject_data[subject_data["Tercile"] == tercile]
+        if render:
+            self.render()
 
-                base = np.mean(tercile_data["InitialPitch"])
-                apex = np.mean(tercile_data["EndingPitch"])
+    def render(self):
+        # set figure size manually, just for this case
+        self.figure.set_size_inches(9, 5)
+        self.figure.tight_layout()
+        self.figure.subplots_adjust(wspace=0.3)
+        self.figure.subplots_adjust(bottom=0.1, left=0.07)
 
-                coordinates = np.array([[base, subject_idx - 0.25], [base, subject_idx + 0.25], [apex, subject_idx]])
+        for group_idx, group in enumerate(self.plot_order):
+            axis = self.axes[group_idx]
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+            subjects = self.experiment.subjects[group]
+            for subject_idx, subject in enumerate(subjects):
+                subject_data = group_data[group_data["Subject"] == subject]
 
-                # draw a filled triangle with these coordinates
-                axis.fill(coordinates[:, 0], coordinates[:, 1], color=colormap[tercile], alpha=0.75)
+                for tercile in subject_data["Tercile"].drop_duplicates():
+                    tercile_data = subject_data[subject_data["Tercile"] == tercile]
 
-        axis.set_title(f"{group} (n={len(subjects)})")
-        axis.set_ylabel("Subject Number")
-        axis.set_ylim(-1, len(subjects))
-        axis.set_xlabel("Pitch (Cents)")
-        if not hide_names:
-            axis.set_yticks(range(len(subjects)), subjects)
+                    base = np.mean(tercile_data["InitialPitch"])
+                    apex = np.mean(tercile_data["EndingPitch"])
 
-    group_tercile_arrows_figure.name = "group_tercile_arrows_figure"
-    return group_tercile_arrows_figure
+                    coordinates = np.array([[base, subject_idx - 0.25],
+                                            [base, subject_idx + 0.25],
+                                            [apex, subject_idx]])
+
+                    # draw a filled triangle with these coordinates
+                    axis.fill(coordinates[:, 0], coordinates[:, 1],
+                              color=self.colormap[group],
+                              alpha=self.opacity_map[tercile],
+                              edgecolor="black")
+
+            axis.set_title(f"{group} (n={len(subjects)})")
+            axis.set_ylabel("Subject Number")
+            axis.set_ylim(-1, len(subjects))
+            axis.set_xlabel("Pitch (Cents)")
 
 
-def group_pitch_normal(group_dictionary: dict, dataframe: pd.DataFrame, colormap=None, density=10):
-    if colormap is None:
-        colormap = {"InitialPitch": "blue", "EndingPitch": "red"}
+class SampleTrials(Figure):
+    def __init__(self, render: bool = True):
+        Figure.__init__(self, subplots=(2,2))
 
-    time_windows = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
+        self.name = "sample_trials"
 
-    group_pitch_normal_figure, axes = plt.subplots(len(group_dictionary), 1, sharex="all")
+        if render:
+            self.render()
 
-    # set figure size manually, just for this case
-    group_pitch_normal_figure.tight_layout()
-    group_pitch_normal_figure.subplots_adjust(top=0.90, bottom=0.1)
+    def render(self):
+        self.figure.tight_layout()
 
-    limits = (min(dataframe["InitialPitch"].min(), dataframe["EndingPitch"].min()),
-              max(dataframe["InitialPitch"].max(), dataframe["EndingPitch"].max()))
 
-    for group_idx, (group, subjects) in enumerate(group_dictionary.items()):
-        # place each group on its own subplot
-        axis = axes[group_idx]
-        group_data = dataframe[dataframe["Group"] == group]
+class GroupPitchNormal(Figure):
+    def __init__(self, experiment: Experiment, plot_order: list = None,
+                 colormap: dict = None, render: bool = True):
 
-        axis.set_ylabel(group)
-        axis.set_yticks([])
-        axis.set_xlim(limits)
+        # override default colormap
+        if colormap is None:
+            colormap = {
+                "AD Patients": {
+                    "InitialPitch": ColorUtils.alter_brightness("goldenrod", -0.5),
+                    "EndingPitch": "goldenrod"
+                },
+                "Controls": {
+                    "InitialPitch": ColorUtils.alter_brightness("teal", -0.7),
+                    "EndingPitch": "teal"
+                }
+            }
 
-        for index, label in time_windows.items():
-            mean, std = (np.mean(group_data[index]), np.std(group_data[index]))
-            # density ensures that rescaling the figure's x-axis won't ruin our smooth-ness of our plot
-            axis.fill(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) / density)),
-                      norm.pdf(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) / density)),
-                               mean, std),
-                      color=colormap[index], alpha=0.4, label=label)
+        self.hatch_map = {
+            "InitialPitch": " ",
+            "EndingPitch": " "
+        }
 
-        axis.legend(loc="upper left")
+        Figure.__init__(self, colormap=colormap, subplots=(len(experiment.subjects), 1), shared_axis=("all", "none"))
 
-    # only label the bottom-most value
-    axes[-1].set_xlabel("Pitch (Cents)")
-    group_pitch_normal_figure.suptitle("Group Pitch Normal Distributions", fontweight="bold")
-    group_pitch_normal_figure.name = "group_pitch_normal"
-    return group_pitch_normal_figure
+        self.experiment = experiment
+        self.name = "group_pitch_normal"
+
+        self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
+
+        if render:
+            self.render()
+
+    def render(self):
+        time_window_labels = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
+
+        # set figure size manually, just for this case
+        self.figure.tight_layout()
+        self.figure.subplots_adjust(top=0.90, bottom=0.1)
+        self.figure.suptitle("Group Pitch Normal Distributions", fontweight="bold")
+
+        limits = (min(self.experiment.df["InitialPitch"].min(), self.experiment.df["EndingPitch"].min()),
+                  max(self.experiment.df["InitialPitch"].max(), self.experiment.df["EndingPitch"].max()))
+
+        for group_idx, group in enumerate(self.plot_order):
+            # place each group on its own subplot
+            axis = self.axes[group_idx]
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+
+            axis.set_ylabel(group)
+            axis.set_yticks([])
+            axis.set_xlim(limits)
+
+            for index, label in time_window_labels.items():
+                mean, std = (np.mean(group_data[index]), np.std(group_data[index]))
+                # density ensures that rescaling the figure's x-axis won't ruin our smooth-ness of our plot
+                axis.fill(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) /
+                                                                      defaults["normal-dist-density"])),
+                          norm.pdf(np.linspace(limits[0], limits[1],
+                                               num=round((limits[1] - limits[0])
+                                                         / defaults["normal-dist-density"])),
+                                   mean, std),
+                          color=self.colormap[group][index], alpha=0.75, label=label,
+                          edgecolor=defaults["hist-outline-color"],
+                          hatch=self.hatch_map[index])
+
+            axis.legend(loc="upper left")
+
+        # only label the bottom-most value
+        self.axes[-1].set_xlabel("Pitch (Cents)")
 
 
 def group_pitch_histogram(group_dictionary: dict, dataframe: pd.DataFrame, bin_width=30, colormap=None):
