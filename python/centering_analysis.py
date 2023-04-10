@@ -228,37 +228,11 @@ def main():
         print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
 
     print(f"Generating Figures...")
-    figure_list = [figures.SampleTrials(
-        motion_points=[
-            [
-                [
-                    [0, 50, 100, 150, 200],
-                    [100, 110, 80, 30, 35]
-                ],
-                [
-                    [0, 50, 100, 150, 200],
-                    [-200, -150, 0, 75, 50]
-                ],
-            ],
-            [
-                [
-                    [0, 50, 100, 150, 200],
-                    [-50, -70, -110, -130, -200]
-                ],
-                [
-                    [0, 50, 100, 150, 200],
-                    [-50, 20, 0, 50, 100]
-                ],
-            ]
-        ], titles=[
-            [
-                "Positive Downward Centering",
-                "Positive Upward Centering"
-            ],
-            [
-                "Negative Downward Centering",
-                "Negative Upward Centering"
-            ]
+    figure_list = [figures.SampleTrial(
+        motion_points=
+        [
+            [0, 50, 100, 150, 200],
+            [100, 110, 80, 30, 35]
         ]),
         figures.GroupPitchNormal(experiment,
                                  plot_order=["Controls", "AD Patients"]),

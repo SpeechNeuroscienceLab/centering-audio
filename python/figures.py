@@ -38,6 +38,25 @@ class Annotations:
                   horizontalalignment="center",
                   size=defaults["annotation-text-size"], )
 
+    @staticmethod
+    def plot_bar(axes: plt.axes, start, end, color="black", linewidth=2):
+        CAP_RADIUS = 20
+        CAP_DENSITY = 1000
+        CAP_PHASE = 1 / 3
+
+        # first, draw the bar itself
+        axes.plot([start[0], end[0]], [start[1], end[1]], color=color, linewidth=linewidth)
+
+        # next, draw the endcaps. We'll be using a circular shape for these of 60 degrees
+        for cap, angle_range, horizontal_correction in ((start, (1 - CAP_PHASE / 2, 1 + CAP_PHASE / 2), CAP_RADIUS),
+                                                        (end, (-CAP_PHASE / 2, CAP_PHASE / 2), -CAP_RADIUS)):
+            cap_pts = np.zeros((CAP_DENSITY, 2))
+            for i, angle in enumerate(np.linspace(angle_range[0] * np.pi, angle_range[1] * np.pi, CAP_DENSITY)):
+                cap_pts[i, 0] = cap[0] + horizontal_correction + CAP_RADIUS * np.cos(angle)
+                cap_pts[i, 1] = cap[1] + CAP_RADIUS * np.sin(angle)
+
+            axes.plot(cap_pts[:, 0], cap_pts[:, 1], color=color, linewidth=linewidth)
+
 
 def __default_group_colormap():
     return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
@@ -222,68 +241,64 @@ class GroupTercileArrows(Figure):
             axis.set_xlabel("Pitch (Cents)")
 
 
-class SampleTrials(Figure):
-    def __init__(self, motion_points: list, titles: list, render: bool = True):
-        Figure.__init__(self, subplots=(2, 2), figsize=(12, 9))
+class SampleTrial(Figure):
+    def __init__(self, motion_points: list, render: bool = True):
+        Figure.__init__(self)
 
-        self.name = "sample_trials"
+        self.name = "sample_trial"
         self.motion_points = motion_points
-        self.titles = titles
-
-        # colormap is a array for this figure
-        self.colormap = ["green", "red"]
 
         if render:
             self.render()
 
     def render(self):
-        self.figure.tight_layout()
-        self.figure.subplots_adjust(wspace=0.2, hspace=0.2, left=0.075, bottom=0.06)
+        axis = self.axes
+        motion_points = self.motion_points
 
-        for row in range(self.axes.shape[0]):
-            for col in range(self.axes.shape[1]):
-                axis = self.axes[row, col]
-                motion_points = self.motion_points[row][col]
+        # arbitrary deg polynomial fit to data
+        smooth_motion_function = np.poly1d(np.polyfit(motion_points[0], motion_points[1], 3))
 
-                # arbitrary deg polynomial fit to data
-                smooth_motion_function = np.poly1d(np.polyfit(motion_points[0], motion_points[1], 3))
+        axis.set_title("Example Trial with Pitch Centering")
+        axis.set_xlim([0, 200])
+        axis.set_ylabel("Pitch (cents)")
+        axis.set_xlabel("Time (ms)")
 
-                axis.set_title(self.titles[row][col])
-                axis.set_xlim([0, 200])
-                axis.set_ylabel("Pitch (cents)")
-                axis.set_xlabel("Time (ms)")
+        plot_domain = np.linspace(0, 200, 100)
 
-                plot_domain = np.linspace(0, 200, 100)
+        smooth_motion_points = smooth_motion_function(plot_domain)
 
-                smooth_motion_points = smooth_motion_function(plot_domain)
+        # add noise from gaussian
+        noisy_motion_points = smooth_motion_points + np.random.normal(smooth_motion_points, 15)
 
-                # add noise from gaussian
-                noisy_motion_points = smooth_motion_points + np.random.normal(smooth_motion_points, 15)
+        axis.plot(plot_domain, noisy_motion_points, color="black", linewidth=1, alpha=0.5)
 
-                axis.plot(plot_domain, noisy_motion_points, color=self.colormap[row])
+        # add the "center" line
+        axis.plot(plot_domain, np.zeros(plot_domain.shape), color="black", linewidth=2)
 
-                # add the "center" line
-                axis.plot(plot_domain, np.zeros(plot_domain.shape), color="black", linewidth=2)
+        # compute the window averages
+        mean_pitches = []
+        windows = [(0, 50), (150, 200)]
+        for window in windows:
+            mean_pitches.append(np.mean(noisy_motion_points[(plot_domain >= window[0])
+                                                            * (plot_domain <= window[1])]))
+        # add annotations for the mean markers
+        Annotations.plot_bar(axis, start=(0.5, mean_pitches[0]), end=(50, mean_pitches[0]), linewidth=1.5)
+        Annotations.plot_bar(axis, start=(150, mean_pitches[1]), end=(199.5, mean_pitches[1]), linewidth=1.5)
 
-                # compute the window averages
-                mean_pitches = []
-                windows = [(0, 50), (150, 200)]
-                for window in windows:
-                    mean_pitches.append(np.mean(noisy_motion_points[(plot_domain >= window[0])
-                                                                    * (plot_domain <= window[1])]))
-                # add dashed lines for mean pitches
-                axis.plot([0, 100], [mean_pitches[0]] * 2, linestyle="dashed", color="gray")
-                axis.plot([100, 200], [mean_pitches[1]] * 2, linestyle="dashed", color="gray")
+        # plot the triangle
+        TRIANGLE_WIDTH = 40
+        coordinates = np.array([[100 - TRIANGLE_WIDTH / 2, mean_pitches[0]],
+                                [100, mean_pitches[1]],
+                                [100 + TRIANGLE_WIDTH / 2, mean_pitches[0]]])
 
-                # plot the triangle
-                coordinates = np.array([[50, mean_pitches[0]], [100, mean_pitches[1]], [150, mean_pitches[0]]])
+        axis.fill(coordinates[:, 0], coordinates[:, 1],
+                  color="black",
+                  alpha=0.5,
+                  edgecolor="black")
 
-                axis.fill(coordinates[:, 0], coordinates[:, 1],
-                          color=self.colormap[row],
-                          alpha=0.5,
-                          edgecolor="black")
-
-                axis.scatter([0, 0], [10, -10], visible=False)
+        # rescale the y-axis to fit entire plot
+        axis.set_ylim([min(min(noisy_motion_points) - 20, -20),
+                       max(max(noisy_motion_points) + 20, 20)])
 
 
 class GroupPitchNormal(Figure):
