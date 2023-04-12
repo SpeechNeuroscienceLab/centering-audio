@@ -191,10 +191,6 @@ def main():
     # compute terciles
     CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
 
-    # Run extra feature: PIDN table generation
-    # (must be done before we rename our subjects)
-    pidn_df = extra.load_pidn_table(trimmed_experiment)
-
     # rename subjects
     full_subject_ids = trimmed_experiment.subjects.copy()
     CenteringAnalysis.rename_subjects(trimmed_experiment)
@@ -254,10 +250,6 @@ def main():
         if figure is not None:
             figure.name = f"figure_{i}"
             figure.save(output_folder)
-
-    print(f"Saving PIDN list to disk")
-    pidn_df.to_csv(f"{output_folder}pidn_list.csv", index=False)
-
 
 if __name__ == "__main__":
     main()
