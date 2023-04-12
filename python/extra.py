@@ -39,7 +39,7 @@ def load_pidn_table(experiment: Experiment):
             if matching_date.shape[0] == 0:
                 print(f"No PIDN could be found for subject {subject[2]} ({cohort})")
             elif matching_date.shape[0] <= subject[1]:
-                print(f"[ERROR] Looking for subject {subject[2]} "
+                print(f"[WARNING] Looking for subject {subject[2]} (SKIPPING)"
                       f"but only found {matching_date.shape[0]} subjects on {subject[0]} ({cohort})")
             else:
                 match = int(matching_date.iloc[[subject[1]]]["PIDN"])

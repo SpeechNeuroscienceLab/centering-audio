@@ -39,15 +39,15 @@ class Annotations:
                   size=defaults["annotation-text-size"], )
 
     @staticmethod
-    def plot_bar(axes: plt.axes, start, end, color="black", linewidth=2):
+    def plot_bar(axes: plt.axes, start, end, color="black", line_width=2):
         CAP_RADIUS = 20
         CAP_DENSITY = 1000
         CAP_PHASE = 1 / 3
 
         # first, draw the bar itself
-        axes.plot([start[0], end[0]], [start[1], end[1]], color=color, linewidth=linewidth)
+        axes.plot([start[0], end[0]], [start[1], end[1]], color=color, linewidth=line_width)
 
-        # next, draw the endcaps. We'll be using a circular shape for these of 60 degrees
+        # next, draw the end caps. We'll be using a circular shape for these of 60 degrees
         for cap, angle_range, horizontal_correction in ((start, (1 - CAP_PHASE / 2, 1 + CAP_PHASE / 2), CAP_RADIUS),
                                                         (end, (-CAP_PHASE / 2, CAP_PHASE / 2), -CAP_RADIUS)):
             cap_pts = np.zeros((CAP_DENSITY, 2))
@@ -55,7 +55,7 @@ class Annotations:
                 cap_pts[i, 0] = cap[0] + horizontal_correction + CAP_RADIUS * np.cos(angle)
                 cap_pts[i, 1] = cap[1] + CAP_RADIUS * np.sin(angle)
 
-            axes.plot(cap_pts[:, 0], cap_pts[:, 1], color=color, linewidth=linewidth)
+            axes.plot(cap_pts[:, 0], cap_pts[:, 1], color=color, linewidth=line_width)
 
 
 def __default_group_colormap():
@@ -87,7 +87,7 @@ def __global_styles():
 
 
 class Figure:
-    def __init__(self, colormap: dict = None, figsize=(6.4, 4.8), subplots=(1, 1), shared_axis=("none", "none")):
+    def __init__(self, colormap: dict = None, fig_size=(6.4, 4.8), subplots=(1, 1), shared_axis=("none", "none")):
         if colormap is None:
             self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
         else:
@@ -95,7 +95,7 @@ class Figure:
 
         self.figure, self.axes = plt.subplots(nrows=subplots[0], ncols=subplots[1],
                                               sharex=shared_axis[0], sharey=shared_axis[1],
-                                              figsize=figsize)
+                                              figsize=fig_size)
         self.name = None
 
     # All plotting functions must have a render function
@@ -282,8 +282,8 @@ class SampleTrial(Figure):
             mean_pitches.append(np.mean(noisy_motion_points[(plot_domain >= window[0])
                                                             * (plot_domain <= window[1])]))
         # add annotations for the mean markers
-        Annotations.plot_bar(axis, start=(0.5, mean_pitches[0]), end=(50, mean_pitches[0]), linewidth=1.5)
-        Annotations.plot_bar(axis, start=(150, mean_pitches[1]), end=(199.5, mean_pitches[1]), linewidth=1.5)
+        Annotations.plot_bar(axis, start=(0.5, mean_pitches[0]), end=(50, mean_pitches[0]))
+        Annotations.plot_bar(axis, start=(150, mean_pitches[1]), end=(199.5, mean_pitches[1]))
 
         # plot the triangle
         TRIANGLE_WIDTH = 40

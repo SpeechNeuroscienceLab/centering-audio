@@ -156,7 +156,6 @@ class CenteringAnalysis:
 # input args
 INPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/analyze_audio.csv"
 OUTPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/publication/"
-USER_DATA_PATH = "/Users/anantajit/Documents/Research/UCSF/mydata/me"
 
 COLUMN_MAP = {
     "Group Name": "Group",
@@ -189,11 +188,12 @@ def main():
 
     print(f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}")
 
-    # Run extra features (must be before we rename our subjects
-    PIDN_df = extra.load_pidn_table(trimmed_experiment)
-
     # compute terciles
     CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
+
+    # Run extra feature: PIDN table generation
+    # (must be done before we rename our subjects)
+    pidn_df = extra.load_pidn_table(trimmed_experiment)
 
     # rename subjects
     full_subject_ids = trimmed_experiment.subjects.copy()
@@ -214,7 +214,7 @@ def main():
     # separate into only peripheral trials
     peripheral_experiment = CenteringAnalysis.drop_central_trials(trimmed_experiment,
                                                                   inplace=False, indexing="Tercile")
-    # compute trial indicies for peripheral trials
+    # compute trial indices for peripheral trials
     CenteringAnalysis.ComputeColumn.trial_index(peripheral_experiment, inplace=True,
                                                 indexing=("Group", "Subject", "Trial"))
 
@@ -228,12 +228,12 @@ def main():
         print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
 
     print(f"Generating Figures...")
-    figure_list = [figures.SampleTrial(
-        motion_points=
-        [
-            [0, 50, 100, 150, 200],
-            [100, 110, 80, 30, 35]
-        ]),
+    figure_list = [
+        figures.SampleTrial(
+            motion_points=[
+                [0, 50, 100, 150, 200],
+                [100, 110, 80, 30, 35]
+            ]),
         figures.GroupPitchNormal(experiment,
                                  plot_order=["Controls", "AD Patients"]),
         figures.GroupTercileArrows(trimmed_experiment,
@@ -254,6 +254,9 @@ def main():
         if figure is not None:
             figure.name = f"figure_{i}"
             figure.save(output_folder)
+
+    print(f"Saving PIDN list to disk")
+    pidn_df.to_csv(f"{output_folder}pidn_list.csv", index=False)
 
 
 if __name__ == "__main__":
