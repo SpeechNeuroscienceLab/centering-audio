@@ -226,7 +226,8 @@ def main():
     # Demographics table
     print("Generating demographics table...")
     extra.compute_demographics("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/demographics_data.csv",
-                               f"{output_folder}demographics.csv")
+                               f"{output_folder}demographics.csv",
+                               latex=f"{output_folder}demographics.tex")
 
     print(f"Generating Figures...")
     figure_list = [
