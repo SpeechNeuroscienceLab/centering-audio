@@ -236,20 +236,21 @@ def main():
                 [0, 50, 100, 150, 200],
                 [100, 110, 80, 30, 35]
             ]),
-        figures.GroupPitchNormal(experiment,
-                                 plot_order=["Controls", "AD Patients"]),
-        figures.GroupTercileArrows(trimmed_experiment,
-                                   plot_order=["Controls", "AD Patients"]),
-        figures.GroupTercileCenteringBars(peripheral_experiment,
-                                          plot_order=["Controls", "AD Patients"])
+        figures.Results(
+            experiments={
+                "raw": experiment,
+                "trimmed": trimmed_experiment,
+                "peripheral": peripheral_experiment
+            },
+            plot_order=["Controls", "AD Patients"])
     ]
 
     # manually set the normal distribution limits
-    figure_list[1].axes[-1].set_xlim([-300, 300])
-    for axis in figure_list[1].axes:
+    figure_list[1].sub_figures[1].axes[-1].set_xlim([-300, 300])
+    for axis in figure_list[1].sub_figures[1].axes:
         axis.set_ylim([0, 0.006])
     # add significance annotation
-    figure_list[3].annotate_significance(x=[2, 3], label="⁎")
+    figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="⁎")
 
     print(f"Saving figures to disk...")
     for i, figure in enumerate(figure_list):

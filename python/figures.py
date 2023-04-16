@@ -3,7 +3,6 @@ import matplotlib.style as style
 import matplotlib.patches as patches
 import matplotlib.colors as colors
 import colorsys
-import pandas as pd
 import numpy as np
 from scipy.stats import norm
 from experiment import Experiment
@@ -74,17 +73,22 @@ def __global_styles():
 
 
 class Figure:
-    def __init__(self, colormap: dict = None, fig_size=(6.4, 4.8), subplots=(1, 1), shared_axis=("none", "none"),
+    def __init__(self, colormap: dict = None, fig_size=(6.4, 4.8), subplots=None, shared_axis=("none", "none"),
                  **kwargs):
         if colormap is None:
             self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
         else:
             self.colormap = colormap
 
-        self.figure, self.axes = plt.subplots(nrows=subplots[0], ncols=subplots[1],
-                                              sharex=shared_axis[0], sharey=shared_axis[1],
-                                              figsize=fig_size,
-                                              **kwargs)
+        if subplots is not None:
+            self.figure, self.axes = plt.subplots(nrows=subplots[0], ncols=subplots[1],
+                                                  sharex=shared_axis[0], sharey=shared_axis[1],
+                                                  figsize=fig_size,
+                                                  **kwargs)
+        else:
+            self.figure = plt.figure(figsize=fig_size, **kwargs)
+            self.axes = self.figure.axes
+
         self.name = None
         # increase DPI
         plt.rcParams['figure.dpi'] = 300
@@ -98,16 +102,59 @@ class Figure:
         self.figure.savefig(f"{output_directory}/{self.name}.png")
 
 
-class GroupTercileCenteringBars(Figure):
-    def __init__(self, experiment: Experiment, plot_order: list = None,
-                 colormap: dict = None, render: bool = True):
-        Figure.__init__(self, colormap=colormap)
+class Results(Figure):
+    def __init__(self, experiments: dict, render: bool = True, **kwargs):
+        Figure.__init__(self, fig_size=(12, 12))
+
+        self.name = "results_figure"
+        self.sub_figures = []
+        self.kwargs = kwargs
+
+        self.experiments = experiments
+
+        if render:
+            self.render()
+
+    def render(self):
+
+        GroupTercileArrowsAxes = [self.figure.add_subplot(2, 2, 1), self.figure.add_subplot(2, 2, 2)]
+        self.sub_figures.append(GroupTercileArrows(experiment=self.experiments["trimmed"],
+                                                   axes=GroupTercileArrowsAxes, **self.kwargs))
+        GroupPitchNormalAxes = [self.figure.add_subplot(4, 2, 5),
+                                self.figure.add_subplot(4, 2, 7)]
+        # combine x-axes
+        GroupPitchNormalAxes[0].get_shared_x_axes().join(GroupPitchNormalAxes[0], GroupPitchNormalAxes[1])
+
+        self.sub_figures.append(GroupPitchNormal(experiment=self.experiments["raw"],
+                                                 axes=GroupPitchNormalAxes, **self.kwargs))
+
+        GroupTercileCenteringBarsAxes = self.figure.add_subplot(4, 2, (6, 8))
+        self.sub_figures.append(GroupTercileCenteringBars(experiment=self.experiments["peripheral"],
+                                                          axes=GroupTercileCenteringBarsAxes, **self.kwargs))
+        self.figure.tight_layout()
+
+        self.figure.text(0.01, 0.97, "A", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.01, 0.47, "B", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.50, 0.47, "C", fontsize="xx-large", fontweight="bold")
+
+
+class SubFigure:
+    def __init__(self, colormap: dict = None, **kwargs):
+        if colormap is None:
+            self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+        else:
+            self.colormap = colormap
+
+
+class GroupTercileCenteringBars(SubFigure):
+    def __init__(self, experiment: Experiment, axes: plt.Axes, plot_order: list = None,
+                 colormap: dict = None):
+        SubFigure.__init__(self, colormap=colormap)
+        self.axes = axes
 
         self.bar_x = None
         self.bar_y = None
         self.experiment = experiment
-
-        self.name = "group_tercile_centering_bar_figure"
 
         self.label_map = {
             "UPPER": "Lowering Pitch",
@@ -115,9 +162,7 @@ class GroupTercileCenteringBars(Figure):
         }
 
         self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
-
-        if render:
-            self.render()
+        self.render()
 
     def render(self):
         # (label, height, error, color, fill-style)
@@ -166,8 +211,9 @@ class GroupTercileCenteringBars(Figure):
                            ls=defaults["error-line-style"])
 
         self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=group)
-                                  for group in self.experiment.subjects],
-                         loc="upper left")
+                                  for group in self.plot_order],
+                         loc="upper left",
+                         frameon=False)
 
     def annotate_significance(self, x, label):
         Annotations.bar_significance(axes=self.axes,
@@ -177,14 +223,13 @@ class GroupTercileCenteringBars(Figure):
                                      label=label)
 
 
-class GroupTercileArrows(Figure):
-    def __init__(self, experiment: Experiment, plot_order: list = None,
-                 colormap: dict = None, render: bool = True):
-        Figure.__init__(self, colormap=colormap, subplots=(1, len(experiment.subjects)))
+class GroupTercileArrows(SubFigure):
+    def __init__(self, axes: list, experiment: Experiment, plot_order: list = None,
+                 colormap: dict = None):
+        SubFigure.__init__(self, colormap=colormap)
+        self.axes = axes
 
         self.experiment = experiment
-        self.name = "group_tercile_arrows_figure"
-
         self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
 
         self.opacity_map = {
@@ -193,16 +238,10 @@ class GroupTercileArrows(Figure):
             "LOWER": 0.75
         }
 
-        if render:
-            self.render()
+        self.render()
 
     def render(self):
         # set figure size manually, just for this case
-        self.figure.set_size_inches(9, 5)
-        self.figure.tight_layout()
-        self.figure.subplots_adjust(wspace=0.3)
-        self.figure.subplots_adjust(bottom=0.1, left=0.07)
-
         for group_idx, group in enumerate(self.plot_order):
             axis = self.axes[group_idx]
             group_data = self.experiment.df[self.experiment.df["Group"] == group]
@@ -319,44 +358,38 @@ class CenteringMethods(Figure):
                              edgecolor="black")
 
 
-class GroupPitchNormal(Figure):
-    def __init__(self, experiment: Experiment, plot_order: list = None,
-                 colormap: dict = None, render: bool = True):
+class GroupPitchNormal(SubFigure):
+    def __init__(self, axes: list, experiment: Experiment, plot_order: list = None):
+        # do not supply a colormap
+        SubFigure.__init__(self)
+        self.axes = axes
 
         # override default colormap
-        if colormap is None:
-            colormap = {
-                "AD Patients": {
-                    "InitialPitch": ColorUtils.alter_brightness("goldenrod", -0.5),
-                    "EndingPitch": "goldenrod"
-                },
-                "Controls": {
-                    "InitialPitch": ColorUtils.alter_brightness("teal", -0.7),
-                    "EndingPitch": "teal"
-                }
+        self.colormap = {
+            "AD Patients": {
+                "InitialPitch": ColorUtils.alter_brightness("goldenrod", -0.5),
+                "EndingPitch": "goldenrod"
+            },
+            "Controls": {
+                "InitialPitch": ColorUtils.alter_brightness("teal", -0.7),
+                "EndingPitch": "teal"
             }
+        }
 
         self.hatch_map = {
             "InitialPitch": " ",
             "EndingPitch": " "
         }
 
-        Figure.__init__(self, colormap=colormap, subplots=(len(experiment.subjects), 1), shared_axis=("all", "none"))
-
         self.experiment = experiment
         self.name = "group_pitch_normal"
 
         self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
 
-        if render:
-            self.render()
+        self.render()
 
     def render(self):
         time_window_labels = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
-
-        # set figure size manually, just for this case
-        self.figure.tight_layout()
-        self.figure.subplots_adjust(top=0.90, bottom=0.1)
 
         limits = (min(self.experiment.df["InitialPitch"].min(), self.experiment.df["EndingPitch"].min()),
                   max(self.experiment.df["InitialPitch"].max(), self.experiment.df["EndingPitch"].max()))
@@ -383,45 +416,14 @@ class GroupPitchNormal(Figure):
                           edgecolor=defaults["hist-outline-color"],
                           hatch=self.hatch_map[index])
 
-            axis.legend(loc="upper left")
+            axis.legend(loc="upper left", frameon=False)
 
         # only label the bottom-most value
         self.axes[-1].set_xlabel("Pitch (Cents)")
 
-
-def group_pitch_histogram(group_dictionary: dict, dataframe: pd.DataFrame, bin_width=30, colormap=None):
-    if colormap is None:
-        colormap = __default_group_colormap()
-
-    time_windows = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
-
-    group_pitch_histogram_figure, axes = plt.subplots(len(group_dictionary) * len(time_windows), 1, sharex="all")
-    axes_iter = iter(axes)
-
-    # set figure size manually, just for this case
-    group_pitch_histogram_figure.set_size_inches(5, 8)
-    group_pitch_histogram_figure.tight_layout()
-    group_pitch_histogram_figure.subplots_adjust(top=0.93, bottom=0.1)
-
-    limits = (min(dataframe["InitialPitch"].min(), dataframe["EndingPitch"].min()),
-              max(dataframe["InitialPitch"].max(), dataframe["EndingPitch"].max()))
-
-    # create even zero aligned bins
-    bins = np.arange(limits[0], limits[1], bin_width)
-
-    for group_idx, (group, subjects) in enumerate(group_dictionary.items()):
-        for index, label in time_windows.items():
-            axis = next(axes_iter)
-            group_data = dataframe[dataframe["Group"] == group]
-
-            axis.hist(group_data[index], color=colormap[group], bins=bins, alpha=0.75)
-
-            axis.set_ylabel(f"{group}\n{label}")
-            axis.set_xlim(limits)
-            axis.set_yticks([])
-
-    group_pitch_histogram_figure.name = "group_pitch_histogram"
-    return group_pitch_histogram_figure
+        for axis_index in range(len(self.axes) - 1):
+            # disable tick marks for all except the last normal dist
+            self.axes[axis_index].set_xticklabels([])
 
 
 # global settings
