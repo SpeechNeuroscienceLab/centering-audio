@@ -86,6 +86,9 @@ class Figure:
                                               figsize=fig_size,
                                               **kwargs)
         self.name = None
+        # increase DPI
+        plt.rcParams['figure.dpi'] = 300
+        plt.rcParams['savefig.dpi'] = 300
 
     # All plotting functions must have a render function
     def render(self):
