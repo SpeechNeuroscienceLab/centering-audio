@@ -231,7 +231,7 @@ def main():
 
     print(f"Generating Figures...")
     figure_list = [
-        figures.SampleTrial(
+        figures.CenteringMethods(
             motion_points=[
                 [0, 50, 100, 150, 200],
                 [100, 110, 80, 30, 35]
