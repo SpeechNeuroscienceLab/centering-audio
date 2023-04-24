@@ -105,7 +105,7 @@ class Figure:
 
 class Results(Figure):
     def __init__(self, experiments: dict, render: bool = True, **kwargs):
-        Figure.__init__(self, fig_size=(12, 11))
+        Figure.__init__(self, fig_size=(9.6, 9))
 
         self.name = "results_figure"
         self.sub_figures = []
@@ -117,7 +117,6 @@ class Results(Figure):
             self.render()
 
     def render(self):
-
         GroupTercileArrowsAxes = [self.figure.add_subplot(2, 2, 1), self.figure.add_subplot(2, 2, 2)]
         self.sub_figures.append(GroupTercileArrows(experiment=self.experiments["trimmed"],
                                                    axes=GroupTercileArrowsAxes, **self.kwargs))
@@ -158,8 +157,8 @@ class GroupTercileCenteringBars(SubFigure):
         self.experiment = experiment
 
         self.label_map = {
-            "UPPER": "Lowering Pitch",
-            "LOWER": "Raising Pitch"
+            "UPPER": "Lowering",
+            "LOWER": "Raising"
         }
 
         self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
@@ -196,8 +195,8 @@ class GroupTercileCenteringBars(SubFigure):
                       hatch=["/", " ", "/", ""]
                       )
 
-        self.axes.set_xticks(ticks=self.bar_x,
-                             labels=[self.label_map[bar["label"]] for bar in bars])
+        self.axes.set_xticks(ticks=self.bar_x)
+        self.axes.set_xticklabels([self.label_map[bar["label"]] for bar in bars], rotation=0, ha="center")
         self.axes.tick_params(axis='x', length=0)
 
         self.axes.set_ylabel("Centering (Cents)")
@@ -214,7 +213,8 @@ class GroupTercileCenteringBars(SubFigure):
         self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=group)
                                   for group in self.plot_order],
                          loc="upper left",
-                         frameon=False)
+                         frameon=False,
+                         prop={'size': 12})
 
     def annotate_significance(self, x, label):
         Annotations.bar_significance(axes=self.axes,
@@ -432,7 +432,8 @@ class GroupPitchNormal(SubFigure):
                           edgecolor=defaults["hist-outline-color"],
                           hatch=self.hatch_map[index])
 
-            axis.legend(loc="upper left", frameon=False)
+            axis.legend(loc="upper left", frameon=False,
+                        prop={'size': 12})
 
         # only label the bottom-most value
         self.axes[-1].set_xlabel("Pitch (Cents)")
