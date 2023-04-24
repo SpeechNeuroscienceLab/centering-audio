@@ -41,7 +41,7 @@ class Annotations:
     def plot_bar(axes: plt.axes, start, end, dashed_end, color="black", line_width=2):
         # first, draw the bar itself
         axes.plot([start[0], end[0]], [start[1], end[1]], color=color, linewidth=line_width)
-        axes.plot([end[0], dashed_end], [end[1], end[1]], color=color, linestyle="dashed")
+        axes.plot([end[0], dashed_end], [end[1], end[1]], color=color, linestyle="dotted")
 
 
 def __default_group_colormap():
@@ -70,6 +70,7 @@ defaults = {
 
 def __global_styles():
     style.use('classic')
+    # plt.rcParams["font.family"] = "Times"
 
 
 class Figure:
@@ -273,7 +274,7 @@ class GroupTercileArrows(SubFigure):
 
 class CenteringMethods(Figure):
     def __init__(self, motion_points: list, render: bool = True):
-        Figure.__init__(self, subplots=(1, 2), gridspec_kw={'width_ratios': [8, 1]})
+        Figure.__init__(self, subplots=(1, 2), gridspec_kw={'width_ratios': [2, 1]})
 
         self.name = "sample_trial"
         self.motion_points = motion_points
@@ -283,7 +284,7 @@ class CenteringMethods(Figure):
 
     def render(self):
         self.figure.tight_layout()
-        self.figure.subplots_adjust(bottom=0.1, left=0.1, wspace=0.05)
+        self.figure.subplots_adjust(bottom=0.1, left=0.1, wspace=0.0)
 
         axis = self.axes[0]
         motion_points = self.motion_points
@@ -349,8 +350,23 @@ class CenteringMethods(Figure):
                                 [100, mean_pitches[1]],
                                 [100 + TRIANGLE_WIDTH / 2, mean_pitches[0]]])
 
-        # make the triangle take up the entire plot (plus a little margin)
-        annotation_axis.set_xlim([100 - TRIANGLE_WIDTH / 2 - 5, 100 + TRIANGLE_WIDTH / 2 + 5])
+        # make the triangle take up the entire right-half of plot (plus a little margin)
+        annotation_axis.set_xlim([0, 100 + TRIANGLE_WIDTH / 2 + 5])
+
+        # continue the dotted line
+        annotation_axis.plot([0, 100 - TRIANGLE_WIDTH / 2], [mean_pitches[0]] * 2, color="black", linestyle="dotted")
+        annotation_axis.plot([0, 100], [mean_pitches[1]] * 2, color="black", linestyle="dotted")
+
+        # add the text labels
+        annotation_axis.text(15, mean_pitches[0], "Initial Pitch",
+                             backgroundcolor="white",
+                             verticalalignment="center",
+                             fontsize="small")
+
+        annotation_axis.text(15, mean_pitches[1], "Mid-trial Pitch",
+                             backgroundcolor="white",
+                             verticalalignment="center",
+                             fontsize="small")
 
         annotation_axis.fill(coordinates[:, 0], coordinates[:, 1],
                              color="black",
