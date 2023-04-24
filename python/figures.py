@@ -33,7 +33,7 @@ class Annotations:
         axes.plot([np.mean(x)] * 2,
                   [max(y) + rise, max(y) + rise + defaults["annotation-vertical-padding"]],
                   color=defaults["annotation-color"])
-        axes.text(np.mean(x), max(y) + rise + 2 * defaults["annotation-vertical-padding"], label,
+        axes.text(np.mean(x), max(y) + rise + defaults["annotation-vertical-padding"], label,
                   horizontalalignment="center",
                   size=defaults["annotation-text-size"], )
 
@@ -70,7 +70,7 @@ defaults = {
 
 def __global_styles():
     style.use('classic')
-    # plt.rcParams["font.family"] = "Times"
+    plt.rcParams["font.family"] = "Times"
 
 
 class Figure:
@@ -105,7 +105,7 @@ class Figure:
 
 class Results(Figure):
     def __init__(self, experiments: dict, render: bool = True, **kwargs):
-        Figure.__init__(self, fig_size=(12, 12))
+        Figure.__init__(self, fig_size=(12, 11))
 
         self.name = "results_figure"
         self.sub_figures = []

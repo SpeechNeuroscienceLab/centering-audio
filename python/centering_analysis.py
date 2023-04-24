@@ -250,7 +250,7 @@ def main():
     for axis in figure_list[1].sub_figures[1].axes:
         axis.set_ylim([0, 0.006])
     # add significance annotation
-    figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="⁎")
+    figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="*")
 
     print(f"Saving figures to disk...")
     for i, figure in enumerate(figure_list):
