@@ -48,6 +48,7 @@ def __default_group_colormap():
     return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
 
 
+
 defaults = {
     "line-width": 1.5,
     # annotations
@@ -70,7 +71,10 @@ defaults = {
 
 def __global_styles():
     style.use('classic')
-    plt.rcParams["font.family"] = "Times"
+    plt.rc("font", **{
+        'family': 'Times',
+        'size': 15
+    })
 
 
 class Figure:
@@ -122,6 +126,7 @@ class Results(Figure):
                                                    axes=GroupTercileArrowsAxes, **self.kwargs))
         GroupPitchNormalAxes = [self.figure.add_subplot(4, 2, 5),
                                 self.figure.add_subplot(4, 2, 7)]
+
         # combine x-axes
         GroupPitchNormalAxes[0].get_shared_x_axes().join(GroupPitchNormalAxes[0], GroupPitchNormalAxes[1])
 
@@ -131,7 +136,10 @@ class Results(Figure):
         GroupTercileCenteringBarsAxes = self.figure.add_subplot(4, 2, (6, 8))
         self.sub_figures.append(GroupTercileCenteringBars(experiment=self.experiments["peripheral"],
                                                           axes=GroupTercileCenteringBarsAxes, **self.kwargs))
+
+        self.figure: plt.Figure
         self.figure.tight_layout()
+        self.figure.subplots_adjust(hspace=0.4, wspace=0.25)
 
         self.figure.text(0.01, 0.97, "A", fontsize="xx-large", fontweight="bold")
         self.figure.text(0.01, 0.47, "B", fontsize="xx-large", fontweight="bold")
@@ -210,11 +218,11 @@ class GroupTercileCenteringBars(SubFigure):
                            capsize=defaults["error-cap-size"],
                            ls=defaults["error-line-style"])
 
-        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=group)
+        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
                                   for group in self.plot_order],
                          loc="upper left",
                          frameon=False,
-                         prop={'size': 12})
+                         prop={'size': 15})
 
     def annotate_significance(self, x, label):
         Annotations.bar_significance(axes=self.axes,
@@ -222,6 +230,10 @@ class GroupTercileCenteringBars(SubFigure):
                                      y=[self.bar_y[i] + defaults["annotation-vertical-padding"] for i in x],
                                      rise=defaults["bar-significance-rise"],
                                      label=label)
+
+
+def default_group_name_map():
+    return {"AD Patients": "Patients with AD", "Controls": "Controls"}
 
 
 class GroupTercileArrows(SubFigure):
@@ -256,9 +268,9 @@ class GroupTercileArrows(SubFigure):
                     base = np.mean(tercile_data["InitialPitch"])
                     apex = np.mean(tercile_data["EndingPitch"])
 
-                    coordinates = np.array([[base, subject_idx - 0.25],
-                                            [base, subject_idx + 0.25],
-                                            [apex, subject_idx]])
+                    coordinates = np.array([[base, subject_idx + 1 - 0.25],
+                                            [base, subject_idx + 1 + 0.25],
+                                            [apex, subject_idx + 1]])
 
                     # draw a filled triangle with these coordinates
                     axis.fill(coordinates[:, 0], coordinates[:, 1],
@@ -266,15 +278,19 @@ class GroupTercileArrows(SubFigure):
                               alpha=self.opacity_map[tercile],
                               edgecolor="black")
 
-            axis.set_title(f"{group} (n={len(subjects)})")
+            group_name = default_group_name_map()[group]
+            axis.set_title(f"{group_name}")
             axis.set_ylabel("Subject Number")
-            axis.set_ylim(-1, len(subjects))
+            axis.set_ylim(0, len(subjects) + 1)
+            axis.set_yticks([float(i) for i in range(1, len(subjects) + 1, 2)])
+            axis.set_yticks([float(i) for i in range(2, len(subjects) + 1, 2)], minor=True)
+            axis.set_yticklabels([str(i) for i in range(1, len(subjects) + 1, 2)])
             axis.set_xlabel("Pitch (Cents)")
 
 
 class CenteringMethods(Figure):
     def __init__(self, motion_points: list, render: bool = True):
-        Figure.__init__(self, subplots=(1, 2), gridspec_kw={'width_ratios': [2, 1]})
+        Figure.__init__(self, subplots=(1, 2), gridspec_kw={'width_ratios': [4, 1]})
 
         self.name = "sample_trial"
         self.motion_points = motion_points
@@ -331,8 +347,8 @@ class CenteringMethods(Figure):
         axis.add_patch(patches.Rectangle((150, 0), 50, plot_height, color="gray", alpha=0.25))
 
         # add text labels
-        axis.text(25, 5, "Initial", horizontalalignment="center")
-        axis.text(175, 5, "Mid-trial", horizontalalignment="center")
+        axis.text(25, 5, "Initial", horizontalalignment="center", fontsize="medium")
+        axis.text(175, 5, "Mid-trial", horizontalalignment="center", fontsize="medium")
 
         # set up the second axis
         annotation_axis = self.axes[1]
@@ -346,27 +362,33 @@ class CenteringMethods(Figure):
         annotation_axis.get_yaxis().set_ticks([])
         # plot the triangle
         TRIANGLE_WIDTH = 40
-        coordinates = np.array([[100 - TRIANGLE_WIDTH / 2, mean_pitches[0]],
-                                [100, mean_pitches[1]],
-                                [100 + TRIANGLE_WIDTH / 2, mean_pitches[0]]])
+        TRIANGLE_OFFSET = 200
+        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, mean_pitches[0]],
+                                [TRIANGLE_OFFSET, mean_pitches[1]],
+                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, mean_pitches[0]]])
 
         # make the triangle take up the entire right-half of plot (plus a little margin)
-        annotation_axis.set_xlim([0, 100 + TRIANGLE_WIDTH / 2 + 5])
+        annotation_axis.set_xlim([0, TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2 + 5])
 
         # continue the dotted line
-        annotation_axis.plot([0, 100 - TRIANGLE_WIDTH / 2], [mean_pitches[0]] * 2, color="black", linestyle="dotted")
-        annotation_axis.plot([0, 100], [mean_pitches[1]] * 2, color="black", linestyle="dotted")
+        annotation_axis.plot([0, TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2], [mean_pitches[0]] * 2, color="black",
+                             linestyle="dotted")
+        annotation_axis.plot([0, TRIANGLE_OFFSET], [mean_pitches[1]] * 2, color="black", linestyle="dotted")
 
         # add the text labels
-        annotation_axis.text(15, mean_pitches[0], "Initial Pitch",
+        TEXT_OFFSET = 15
+        annotation_axis.text(TEXT_OFFSET, mean_pitches[0], "$F_{\\mathrm{init}}$",
                              backgroundcolor="white",
                              verticalalignment="center",
-                             fontsize="small")
+                             fontsize="medium")
 
-        annotation_axis.text(15, mean_pitches[1], "Mid-trial Pitch",
+        annotation_axis.text(TEXT_OFFSET, mean_pitches[1], "$F_{\\mathrm{mid"
+                                                           #u"\u2212"
+                                                           #"trial
+                                                           "}}$",
                              backgroundcolor="white",
                              verticalalignment="center",
-                             fontsize="small")
+                             fontsize="medium")
 
         annotation_axis.fill(coordinates[:, 0], coordinates[:, 1],
                              color="black",
@@ -405,7 +427,10 @@ class GroupPitchNormal(SubFigure):
         self.render()
 
     def render(self):
-        time_window_labels = {"InitialPitch": "Initial Pitch", "EndingPitch": "Mid-trial Pitch"}
+        time_window_labels = {"InitialPitch": "$F_{\\mathrm{init}}$", "EndingPitch": "$F_{\\mathrm{mid"
+                                                                                     #u"\u2212"
+                                                                                     #"trial
+                                                                                     "}}$"}
 
         limits = (min(self.experiment.df["InitialPitch"].min(), self.experiment.df["EndingPitch"].min()),
                   max(self.experiment.df["InitialPitch"].max(), self.experiment.df["EndingPitch"].max()))
@@ -415,9 +440,11 @@ class GroupPitchNormal(SubFigure):
             axis = self.axes[group_idx]
             group_data = self.experiment.df[self.experiment.df["Group"] == group]
 
-            axis.set_ylabel(group)
+            axis: plt.Axes
+            axis.set_ylabel(default_group_name_map()[group])
             axis.set_yticks([])
-            axis.set_xlim(limits)
+            axis.set_xlim(*limits)
+            axis.tick_params(axis="x", direction="out")
 
             for index, label in time_window_labels.items():
                 mean, std = (np.mean(group_data[index]), np.std(group_data[index]))
@@ -433,7 +460,7 @@ class GroupPitchNormal(SubFigure):
                           hatch=self.hatch_map[index])
 
             axis.legend(loc="upper left", frameon=False,
-                        prop={'size': 12})
+                        prop={'size': 15})
 
         # only label the bottom-most value
         self.axes[-1].set_xlabel("Pitch (Cents)")
