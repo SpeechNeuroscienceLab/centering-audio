@@ -6,6 +6,7 @@ import colorsys
 import numpy as np
 from scipy.stats import norm
 from experiment import Experiment
+from pprint import pprint
 
 
 class ColorUtils:
@@ -46,7 +47,6 @@ class Annotations:
 
 def __default_group_colormap():
     return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
-
 
 
 defaults = {
@@ -107,6 +107,213 @@ class Figure:
         self.figure.savefig(f"{output_directory}/{self.name}.png")
 
 
+class SubFigure:
+    def __init__(self, colormap: dict = None, **kwargs):
+        if colormap is None:
+            self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+        else:
+            self.colormap = colormap
+
+
+class Distributions(Figure):
+    def __init__(self, experiments: dict, render: bool = True, **kwargs):
+        Figure.__init__(self, fig_size=(9.6, 4.5))
+
+        self.name = "distributions_figure"
+        self.sub_figures = []
+        self.kwargs = kwargs
+
+        self.experiments = experiments
+
+        if render:
+            self.render()
+
+    def render(self):
+        GroupInitialPitchesDistribution = self.figure.add_subplot(1, 2, 1)
+        self.sub_figures.append(GroupCenteringTercileDots(experiment=self.experiments["peripheral"],
+                                                          axes=GroupInitialPitchesDistribution, **self.kwargs))
+
+        GroupTercileCenteringBarsAxes = self.figure.add_subplot(1, 2, 2)
+        self.sub_figures.append(GroupTercileCenteringBars(experiment=self.experiments["peripheral"],
+                                                          axes=GroupTercileCenteringBarsAxes, **self.kwargs))
+
+        self.figure: plt.Figure
+        self.figure.tight_layout()
+        self.figure.subplots_adjust(hspace=0, wspace=0.3)
+
+        self.figure.text(0.01, 0.9, "A", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.5, 0.9, "B", fontsize="xx-large", fontweight="bold")
+
+
+class GroupCentralPeripheralBars(SubFigure):
+    def __init__(self, experiment: Experiment, axes: plt.Axes, plot_order: list = None, colormap: dict = None):
+        SubFigure.__init__(self, colormap=colormap)
+        self.axes = axes
+        self.experiment = experiment
+
+        self.bar_y = None
+        self.bar_x = None
+
+        self.label_alias = {
+            "CENTRAL": "Central",
+            "PERI": "Peripheral",
+        }
+
+        self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
+        self.render()
+
+    def render(self):
+        # (label, height, error, color, fill-style)
+        bars = []
+
+        for group in self.plot_order:
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+
+            central_tercile_data = group_data[group_data["Tercile"] == "CENTRAL"]
+            bars.append({
+                "group": group,
+                "label": "CENTRAL",
+                "height": np.nanmean(central_tercile_data["Centering"]),
+                "error": StatisticsHelpers.standard_error(central_tercile_data["Centering"]),
+                "color": self.colormap[group],
+            })
+
+        for group in self.plot_order:
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+
+            peripheral_tercile_data = group_data[group_data["Tercile"] != "CENTRAL"]
+            bars.append({
+                "group": group,
+                "label": "PERI",
+                "height": np.nanmean(peripheral_tercile_data["Centering"]),
+                "error": StatisticsHelpers.standard_error(peripheral_tercile_data["Centering"]),
+                "color": self.colormap[group],
+            })
+
+        print("Group Central vs Peripheral Data")
+        pprint(bars)
+
+        self.bar_x = np.arange(len(bars), dtype=np.float64)
+        self.bar_y = [bar["height"] + bar["error"] for bar in bars]
+
+        # insert spaces between groups
+        # for i in range(len(bars)):
+        #     if i > 0 and bars[i - 1]["group"] != bars[i]["group"]:
+        #         self.bar_x[i:] += defaults["bar-group-spacing"]
+
+        self.axes.errorbar(x=self.bar_x,
+                           y=[bar["height"] for bar in bars],
+                           yerr=[bar["error"] for bar in bars],
+                           color=defaults["error-color"],
+                           elinewidth=defaults["line-width"],
+                           capthick=defaults["line-width"],
+                           capsize=defaults["error-cap-size"],
+                           ls=defaults["error-line-style"])
+
+        self.axes.bar(x=self.bar_x,
+                      width=0.9,
+                      height=[bar["height"] for bar in bars],
+                      color=[bar["color"] for bar in bars],
+                      alpha=0.9)
+
+        self.axes.axhline(y=0, color='black')
+
+        self.axes.set_xticks(ticks=[0.5, 2.5])
+        self.axes.set_xticklabels([alias for _, alias in self.label_alias.items()], rotation=0, ha="center")
+        self.axes.tick_params(axis='x', length=0)
+
+        self.axes.set_ylabel("Centering (Cents)")
+
+        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
+                                  for group in self.plot_order],
+                         loc="upper left",
+                         frameon=False,
+                         prop={'size': 15})
+
+    def annotate_significance(self, x, label):
+        Annotations.bar_significance(axes=self.axes,
+                                     x=[self.bar_x[i] for i in x],
+                                     y=[self.bar_y[i] + defaults["annotation-vertical-padding"] for i in x],
+                                     rise=defaults["bar-significance-rise"],
+                                     label=label)
+
+
+class GroupCenteringTercileDots(SubFigure):
+    def __init__(self, experiment: Experiment, axes: plt.Axes, plot_order: list = None,
+                 colormap: dict = None):
+        SubFigure.__init__(self, colormap=colormap)
+        self.axes = axes
+
+        self.bar_x = None
+        self.bar_y = None
+        self.experiment = experiment
+
+        self.label_map = {
+            "UPPER": "Upper",
+            "LOWER": "Lower"
+        }
+
+        self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
+        self.render()
+
+    def render(self):
+        # (label, height, error, color, fill-style)
+        dots = []
+
+        for group in self.plot_order:
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+            for tercile_index, tercile in enumerate(group_data["Tercile"].drop_duplicates()):
+                tercile_data = group_data[group_data["Tercile"] == tercile]
+                dots.append({
+                    "group": group,
+                    "label": tercile,
+                    "height": np.nanmean(np.abs(tercile_data["InitialPitch"])),
+                    "error": StatisticsHelpers.standard_error(np.abs(tercile_data["InitialPitch"])),
+                    "color": self.colormap[group],
+                })
+
+        print("Group Tercile Initial Deviation Dots:")
+        pprint(dots)
+
+        self.bar_x = np.arange(len(dots), dtype=np.float64)
+        self.bar_y = [bar["height"] + bar["error"] for bar in dots]
+
+        # insert spaces between groups
+        for i in range(len(dots)):
+            if i > 0 and dots[i - 1]["group"] != dots[i]["group"]:
+                self.bar_x[i:] += defaults["bar-group-spacing"]
+
+        self.axes.errorbar(x=self.bar_x,
+                           y=[bar["height"] for bar in dots],
+                           yerr=[bar["error"] for bar in dots],
+                           color=defaults["error-color"],
+                           elinewidth=defaults["line-width"],
+                           capthick=defaults["line-width"],
+                           capsize=defaults["error-cap-size"],
+                           ls=defaults["error-line-style"],
+                           zorder=1)
+
+        self.axes.scatter(x=self.bar_x,
+                          y=[bar["height"] for bar in dots],
+                          color=[bar["color"] for bar in dots],
+                          alpha=0.9,
+                          marker='h',
+                          s=300,
+                          zorder=2)
+
+        self.axes.set_xticks(ticks=self.bar_x)
+        self.axes.set_xticklabels([self.label_map[bar["label"]] for bar in dots], rotation=0, ha="center")
+        self.axes.tick_params(axis='x', length=0)
+
+        self.axes.set_ylabel("Magnitude of Pitch (Cents)")
+
+        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
+                                  for group in self.plot_order],
+                         loc="upper left",
+                         frameon=False,
+                         prop={'size': 15})
+
+
 class Results(Figure):
     def __init__(self, experiments: dict, render: bool = True, **kwargs):
         Figure.__init__(self, fig_size=(9.6, 9))
@@ -133,9 +340,9 @@ class Results(Figure):
         self.sub_figures.append(GroupPitchNormal(experiment=self.experiments["raw"],
                                                  axes=GroupPitchNormalAxes, **self.kwargs))
 
-        GroupTercileCenteringBarsAxes = self.figure.add_subplot(4, 2, (6, 8))
-        self.sub_figures.append(GroupTercileCenteringBars(experiment=self.experiments["peripheral"],
-                                                          axes=GroupTercileCenteringBarsAxes, **self.kwargs))
+        GroupCentralVsPeripheral = self.figure.add_subplot(4, 2, (6, 8))
+        self.sub_figures.append(GroupCentralPeripheralBars(experiment=self.experiments["trimmed"],
+                                                           axes=GroupCentralVsPeripheral, **self.kwargs))
 
         self.figure: plt.Figure
         self.figure.tight_layout()
@@ -187,6 +394,9 @@ class GroupTercileCenteringBars(SubFigure):
                     "error": StatisticsHelpers.standard_error(tercile_data["Centering"]),
                     "color": self.colormap[group],
                 })
+
+        print("Group Tercile Centering Bar Data:")
+        pprint(bars)
 
         self.bar_x = np.arange(len(bars), dtype=np.float64)
         self.bar_y = [bar["height"] + bar["error"] for bar in bars]
@@ -337,8 +547,8 @@ class CenteringMethods(Figure):
                              dashed_end=200)
 
         # rescale the y-axis to fit entire plot cleanly
-        axis.set_ylim([min(min(noisy_motion_points) - 20, -20),
-                       max(max(noisy_motion_points) + 20, 20)])
+        axis.set_ylim([min(min(noisy_motion_points) - 20, 0),
+                       max(max(noisy_motion_points) + 20, 0)])
 
         plot_height = axis.get_ylim()[1] - axis.get_ylim()[0]
 
@@ -383,8 +593,8 @@ class CenteringMethods(Figure):
                              fontsize="medium")
 
         annotation_axis.text(TEXT_OFFSET, mean_pitches[1], "$F_{\\mathrm{mid"
-                                                           #u"\u2212"
-                                                           #"trial
+        # u"\u2212"
+        # "trial
                                                            "}}$",
                              backgroundcolor="white",
                              verticalalignment="center",
@@ -428,8 +638,8 @@ class GroupPitchNormal(SubFigure):
 
     def render(self):
         time_window_labels = {"InitialPitch": "$F_{\\mathrm{init}}$", "EndingPitch": "$F_{\\mathrm{mid"
-                                                                                     #u"\u2212"
-                                                                                     #"trial
+        # u"\u2212"
+        # "trial
                                                                                      "}}$"}
 
         limits = (min(self.experiment.df["InitialPitch"].min(), self.experiment.df["EndingPitch"].min()),
@@ -448,6 +658,7 @@ class GroupPitchNormal(SubFigure):
 
             for index, label in time_window_labels.items():
                 mean, std = (np.mean(group_data[index]), np.std(group_data[index]))
+                print(f"Group Normal Distribution ({group}) in {index}: {mean} +- {std}")
                 # density ensures that rescaling the figure's x-axis won't ruin our smooth-ness of our plot
                 axis.fill(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) /
                                                                       defaults["normal-dist-density"])),

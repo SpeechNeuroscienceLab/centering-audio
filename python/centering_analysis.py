@@ -1,5 +1,7 @@
 # import statements
 import numpy as np
+import pandas as pd
+
 from experiment import Experiment
 from pathlib import Path
 import figures
@@ -210,8 +212,10 @@ def main():
     # separate into only peripheral trials
     peripheral_experiment = CenteringAnalysis.drop_central_trials(trimmed_experiment,
                                                                   inplace=False, indexing="Tercile")
-    # compute trial indices for peripheral trials
+    # recompute trial indices for peripheral trials
     CenteringAnalysis.ComputeColumn.trial_index(peripheral_experiment, inplace=True,
+                                                indexing=("Group", "Subject", "Trial"))
+    CenteringAnalysis.ComputeColumn.trial_index(trimmed_experiment, inplace=True,
                                                 indexing=("Group", "Subject", "Trial"))
 
     output_folder = OUTPUT_PATH
@@ -220,14 +224,29 @@ def main():
     peripheral_experiment.to_csv(f"{output_folder}centering-analysis.csv")
     print(f"Wrote data table to '{output_folder}centering-analysis.csv'")
 
+    # write all data to disk
+    trimmed_experiment.to_csv(f"{output_folder}all-terciles-centering-analysis.csv")
+
+    # write the pitch variance table
+    pitch_variance_table = pd.melt(peripheral_experiment.df,
+                                   id_vars=["Group", "Subject"],
+                                   value_vars=["InitialPitch", "EndingPitch"],
+                                   var_name="SamplingTime",
+                                   value_name="Pitch")
+    pitch_variance_table["PitchVariance"] = (pitch_variance_table.groupby(
+        ["Group", "Subject", "SamplingTime"])["Pitch"]).transform(lambda x: np.var(x))
+    pitch_variance_table.drop_duplicates(subset=["Group", "Subject", "SamplingTime"], keep="first", inplace=True)
+    pitch_variance_table.to_csv(f"{output_folder}pitch_variance_table.csv", index=False)
+
     for group, subjects in peripheral_experiment.subjects.items():
         print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
 
     # Demographics table
     print("Generating demographics table...")
     extra.compute_demographics("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/demographics_data.csv",
-                               f"{output_folder}demographics.csv",
-                               latex=f"{output_folder}demographics.tex")
+                               f"{output_folder}demographics.csv", )
+    # Disable LaTeX auto-export
+    # latex=f"{output_folder}demographics.tex")
 
     print(f"Generating Figures...")
     figure_list = [
@@ -242,15 +261,29 @@ def main():
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment
             },
+            plot_order=["Controls", "AD Patients"]),
+        figures.Distributions(
+            experiments={
+                "raw": experiment,
+                "trimmed": trimmed_experiment,
+                "peripheral": peripheral_experiment,
+            },
             plot_order=["Controls", "AD Patients"])
     ]
 
     # manually set the normal distribution limits
     figure_list[1].sub_figures[1].axes[-1].set_xlim([-300, 300])
+
+    # manually set limits of bar plots for central vs peripheral
+    figure_list[1].sub_figures[2].axes.set_ylim([-20, 25])
+
+    # manually re-window the scatter with bars
+    figure_list[2].sub_figures[0].axes.set_ylim([68, 80])
+
     for axis in figure_list[1].sub_figures[1].axes:
         axis.set_ylim([0, 0.006])
     # add significance annotation
-    figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="*")
+    figure_list[2].sub_figures[1].annotate_significance(x=[2, 3], label="*")
 
     print(f"Saving figures to disk...")
     for i, figure in enumerate(figure_list):
