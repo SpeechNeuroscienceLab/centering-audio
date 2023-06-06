@@ -90,9 +90,19 @@ class Figure:
                                                   sharex=shared_axis[0], sharey=shared_axis[1],
                                                   figsize=fig_size,
                                                   **kwargs)
+            for axis in self.axes:
+                axis.spines[['right', 'top']].set_visible(False)
+                axis.tick_params(axis='both', direction='out')
+                axis.get_xaxis().tick_bottom()  # remove unneeded ticks
+                axis.get_yaxis().tick_left()
         else:
             self.figure = plt.figure(figsize=fig_size, **kwargs)
             self.axes = self.figure.axes
+            for axis in self.axes:
+                axis.spines[['right', 'top']].set_visible(False)
+                axis.tick_params(axis='both', direction='out')
+                axis.get_xaxis().tick_bottom()  # remove unneeded ticks
+                axis.get_yaxis().tick_left()
 
         self.name = None
         # increase DPI
@@ -117,7 +127,7 @@ class SubFigure:
 
 class Distributions(Figure):
     def __init__(self, experiments: dict, render: bool = True, **kwargs):
-        Figure.__init__(self, fig_size=(9.6, 4.5))
+        Figure.__init__(self)
 
         self.name = "distributions_figure"
         self.sub_figures = []
@@ -129,20 +139,19 @@ class Distributions(Figure):
             self.render()
 
     def render(self):
-        GroupInitialPitchesDistribution = self.figure.add_subplot(1, 2, 1)
+        GroupInitialPitchesDistribution = self.figure.add_subplot(1, 1, 1)
         self.sub_figures.append(GroupCenteringTercileDots(experiment=self.experiments["peripheral"],
                                                           axes=GroupInitialPitchesDistribution, **self.kwargs))
-
-        GroupTercileCenteringBarsAxes = self.figure.add_subplot(1, 2, 2)
-        self.sub_figures.append(GroupTercileCenteringBars(experiment=self.experiments["peripheral"],
-                                                          axes=GroupTercileCenteringBarsAxes, **self.kwargs))
 
         self.figure: plt.Figure
         self.figure.tight_layout()
         self.figure.subplots_adjust(hspace=0, wspace=0.3)
 
-        self.figure.text(0.01, 0.9, "A", fontsize="xx-large", fontweight="bold")
-        self.figure.text(0.5, 0.9, "B", fontsize="xx-large", fontweight="bold")
+        for figure in self.sub_figures:
+            figure.axes.spines[['right', 'top']].set_visible(False)
+            figure.axes.tick_params(axis='both', direction='out')
+            figure.axes.get_xaxis().tick_bottom()  # remove unneeded ticks
+            figure.axes.get_yaxis().tick_left()
 
 
 class GroupCentralPeripheralBars(SubFigure):
@@ -249,8 +258,8 @@ class GroupCenteringTercileDots(SubFigure):
         self.experiment = experiment
 
         self.label_map = {
-            "UPPER": "Upper",
-            "LOWER": "Lower"
+            "UPPER": "Upper\nPeripheral",
+            "LOWER": "Lower\nPeripheral"
         }
 
         self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
@@ -305,13 +314,20 @@ class GroupCenteringTercileDots(SubFigure):
         self.axes.set_xticklabels([self.label_map[bar["label"]] for bar in dots], rotation=0, ha="center")
         self.axes.tick_params(axis='x', length=0)
 
-        self.axes.set_ylabel("Magnitude of Pitch (Cents)")
+        self.axes.set_ylabel("Magnitude of Initial Pitch (Cents)")
 
         self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
                                   for group in self.plot_order],
                          loc="upper left",
                          frameon=False,
                          prop={'size': 15})
+
+    def annotate_significance(self, x, label):
+        Annotations.bar_significance(axes=self.axes,
+                                     x=[self.bar_x[i] for i in x],
+                                     y=[self.bar_y[i] + defaults["annotation-vertical-padding"] for i in x],
+                                     rise=defaults["bar-significance-rise"],
+                                     label=label)
 
 
 class Results(Figure):
@@ -340,17 +356,32 @@ class Results(Figure):
         self.sub_figures.append(GroupPitchNormal(experiment=self.experiments["raw"],
                                                  axes=GroupPitchNormalAxes, **self.kwargs))
 
-        GroupCentralVsPeripheral = self.figure.add_subplot(4, 2, (6, 8))
-        self.sub_figures.append(GroupCentralPeripheralBars(experiment=self.experiments["trimmed"],
-                                                           axes=GroupCentralVsPeripheral, **self.kwargs))
+        GroupTercileCenteringBarsAxes = self.figure.add_subplot(4, 2, (6, 8))
+        self.sub_figures.append(GroupTercileCenteringBars(experiment=self.experiments["peripheral"],
+                                                          axes=GroupTercileCenteringBarsAxes, **self.kwargs))
+
+        for figure in self.sub_figures:
+            if isinstance(figure.axes, list):
+                for axis in figure.axes:
+                    axis.spines[['right', 'top']].set_visible(False)
+                    axis.tick_params(axis='both', direction='out')
+                    axis.get_xaxis().tick_bottom()  # remove unneeded ticks
+                    axis.get_yaxis().tick_left()
+            else:
+                figure.axes.spines[['right', 'top']].set_visible(False)
+                axis = figure.axes
+                axis.tick_params(axis='both', direction='out')
+                axis.get_xaxis().tick_bottom()  # remove unneeded ticks
+                axis.get_yaxis().tick_left()
 
         self.figure: plt.Figure
         self.figure.tight_layout()
         self.figure.subplots_adjust(hspace=0.4, wspace=0.25)
 
         self.figure.text(0.01, 0.97, "A", fontsize="xx-large", fontweight="bold")
-        self.figure.text(0.01, 0.47, "B", fontsize="xx-large", fontweight="bold")
-        self.figure.text(0.50, 0.47, "C", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.50, 0.97, "B", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.01, 0.47, "C", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.50, 0.47, "D", fontsize="xx-large", fontweight="bold")
 
 
 class SubFigure:
@@ -637,10 +668,7 @@ class GroupPitchNormal(SubFigure):
         self.render()
 
     def render(self):
-        time_window_labels = {"InitialPitch": "$F_{\\mathrm{init}}$", "EndingPitch": "$F_{\\mathrm{mid"
-        # u"\u2212"
-        # "trial
-                                                                                     "}}$"}
+        time_window_labels = {"InitialPitch": "$F_{\\mathrm{init}}$", "EndingPitch": "$F_{\\mathrm{mid}}$"}
 
         limits = (min(self.experiment.df["InitialPitch"].min(), self.experiment.df["EndingPitch"].min()),
                   max(self.experiment.df["InitialPitch"].max(), self.experiment.df["EndingPitch"].max()))

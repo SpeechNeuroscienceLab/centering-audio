@@ -274,16 +274,16 @@ def main():
     # manually set the normal distribution limits
     figure_list[1].sub_figures[1].axes[-1].set_xlim([-300, 300])
 
-    # manually set limits of bar plots for central vs peripheral
-    figure_list[1].sub_figures[2].axes.set_ylim([-20, 25])
-
     # manually re-window the scatter with bars
-    figure_list[2].sub_figures[0].axes.set_ylim([68, 80])
+    figure_list[2].sub_figures[0].axes.set_ylim([68, 82])
 
     for axis in figure_list[1].sub_figures[1].axes:
         axis.set_ylim([0, 0.006])
+
     # add significance annotation
-    figure_list[2].sub_figures[1].annotate_significance(x=[2, 3], label="*")
+    figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="*")
+
+    figure_list[2].sub_figures[0].annotate_significance(x=[0, 1], label="*")
 
     print(f"Saving figures to disk...")
     for i, figure in enumerate(figure_list):
