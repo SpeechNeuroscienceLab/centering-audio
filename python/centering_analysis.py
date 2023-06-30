@@ -252,8 +252,12 @@ def main():
     figure_list = [
         figures.CenteringMethods(
             motion_points=[
-                [0, 50, 100, 150, 200],
-                [100, 110, 80, 30, 35]
+                [[0, 50, 100, 150, 200],
+                 [190, 175, 170, 160, 162]],
+                [[0, 50, 100, 150, 200],
+                 [180, 175, 173, 168, 170]],
+                [[0, 50, 100, 150, 200],
+                 [175, 170, 160, 165, 165]],
             ]),
         figures.Results(
             experiments={
@@ -268,7 +272,9 @@ def main():
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment,
             },
-            plot_order=["Controls", "AD Patients"])
+            plot_order=["Controls", "AD Patients"]),
+        figures.RecruitmentDiscussion(),
+        figures.SensitivityDiscussion()
     ]
 
     # manually set the normal distribution limits

@@ -7,6 +7,7 @@ import numpy as np
 from scipy.stats import norm
 from experiment import Experiment
 from pprint import pprint
+import matplotlib.patches as mpatches
 
 
 class ColorUtils:
@@ -530,111 +531,169 @@ class GroupTercileArrows(SubFigure):
 
 
 class CenteringMethods(Figure):
+    @staticmethod
+    def generate_track(motion_points):
+        smooth_motion_function = np.poly1d(np.polyfit(motion_points[0], motion_points[1], 3))
+        plot_domain = np.linspace(0, 200, 150)
+        smooth_motion_points = smooth_motion_function(plot_domain)
+        noisy_motion_points = smooth_motion_points + np.random.normal(smooth_motion_points, 1)
+
+        return noisy_motion_points
+
     def __init__(self, motion_points: list, render: bool = True):
-        Figure.__init__(self, subplots=(1, 2), gridspec_kw={'width_ratios': [4, 1]})
+        Figure.__init__(self, fig_size=(12.8, 4.8))
+        self.axes = [self.figure.add_subplot(1, 4, (1, 2)),
+                     self.figure.add_subplot(1, 4, 3),
+                     self.figure.add_subplot(1, 4, 4)]
+
+        # reset the axes manually
+        for axis in self.axes:
+            axis.spines[['right', 'top']].set_visible(False)
+            axis.tick_params(axis='both', direction='out')
+            axis.get_xaxis().tick_bottom()  # remove unneeded ticks
+            axis.get_yaxis().tick_left()
 
         self.name = "sample_trial"
-        self.motion_points = motion_points
+        self.tracks = []
+
+        for mp in motion_points:
+            self.tracks.append(CenteringMethods.generate_track(mp))
 
         if render:
             self.render()
 
     def render(self):
+        TARGET = 0
         self.figure.tight_layout()
-        self.figure.subplots_adjust(bottom=0.1, left=0.1, wspace=0.0)
+        self.figure.subplots_adjust(left=0.06, wspace=0.7)
 
         axis = self.axes[0]
-        motion_points = self.motion_points
-
-        # arbitrary deg polynomial fit to data
-        smooth_motion_function = np.poly1d(np.polyfit(motion_points[0], motion_points[1], 3))
-
-        axis.set_xlim([0, 200])
-        axis.set_ylabel("Pitch (cents)")
+        axis.set_ylabel("Pitch (hz)")
         axis.set_xlabel("Time (ms)")
 
-        plot_domain = np.linspace(0, 200, 100)
+        domain = np.linspace(0, 200, len(self.tracks[0]), endpoint=True)
 
-        smooth_motion_points = smooth_motion_function(plot_domain)
-
-        # add noise from gaussian
-        noisy_motion_points = smooth_motion_points + np.random.normal(smooth_motion_points, 15)
-
-        axis.plot(plot_domain, noisy_motion_points, color="black", linewidth=1, alpha=0.5)
+        for i, track in enumerate(self.tracks):
+            if i != TARGET:
+                axis.plot(domain, track, color="black", linewidth=1, alpha=0.5)
+            else:
+                axis.plot(domain, track, color="blue", linewidth=1, alpha=0.5)
 
         # add the "center" line
-        axis.plot(plot_domain, np.zeros(plot_domain.shape), color="black")
+        axis.plot(domain, np.zeros(domain.shape), color="black")
 
-        # compute the window averages
-        mean_pitches = []
-        windows = [(0, 50), (150, 200)]
-        for window in windows:
-            mean_pitches.append(np.mean(noisy_motion_points[(plot_domain >= window[0])
-                                                            * (plot_domain <= window[1])]))
-        # add annotations for the mean markers
-        Annotations.plot_bar(axis,
-                             start=(0.5, mean_pitches[0]), end=(50, mean_pitches[0]), dashed_end=200)
-        Annotations.plot_bar(axis, start=(150, mean_pitches[1]), end=(199.5, mean_pitches[1]),
-                             dashed_end=200)
-
-        # rescale the y-axis to fit entire plot cleanly
-        axis.set_ylim([min(min(noisy_motion_points) - 20, 0),
-                       max(max(noisy_motion_points) + 20, 0)])
-
-        plot_height = axis.get_ylim()[1] - axis.get_ylim()[0]
+        # compute y limits so all values are shown well
+        ylim = [np.min(self.tracks, axis=None) * 0.99 - 12, np.max(self.tracks, axis=None) * 1.01]
+        axis.set_ylim(ylim)
 
         # add rectangular overlay for windows
-        axis.add_patch(patches.Rectangle((0, 0), 50, plot_height, color="gray", alpha=0.25))
-        axis.add_patch(patches.Rectangle((150, 0), 50, plot_height, color="gray", alpha=0.25))
+        axis.add_patch(patches.Rectangle((0, ylim[0]), 50, ylim[1] - ylim[0], color="gray", alpha=0.1))
+        axis.add_patch(patches.Rectangle((150, ylim[0]), 50, ylim[1] - ylim[0], color="gray", alpha=0.1))
 
         # add text labels
-        axis.text(25, 5, "Initial", horizontalalignment="center", fontsize="medium")
-        axis.text(175, 5, "Mid-trial", horizontalalignment="center", fontsize="medium")
 
-        # set up the second axis
-        annotation_axis = self.axes[1]
-        # match scales
-        annotation_axis.set_ylim(axis.get_ylim())
+        axis.text(25, ylim[0] + 2, "Initial", horizontalalignment="center", fontsize="medium")
+        axis.text(175, ylim[0] + 2, "Mid-trial", horizontalalignment="center", fontsize="medium")
 
-        for spines in ['top', 'right', 'bottom', 'left']:
-            annotation_axis.spines[spines].set_visible(False)
+        # compute means and medians
+        windows = (domain <= 50, 150 <= domain)
+        window_means = [[np.mean(track[window]) for window in windows] for track in self.tracks]
 
-        annotation_axis.get_xaxis().set_ticks([])
-        annotation_axis.get_yaxis().set_ticks([])
+        center_hz = [np.median([track[i] for track in window_means])
+                     for i, _ in enumerate(windows)]
+
+        for i, window in enumerate(windows):
+            axis.plot(domain[window], len(domain[window]) * [window_means[TARGET][i]], color="blue",
+                      linewidth=2)
+
+            # compute the median production
+            axis.plot(domain[window], len(domain[window]) * [center_hz[i]],
+                      color="green",
+                      linewidth=2)
+
+        sample_trial_patch = mpatches.Patch(color='blue', label='Sample Trial')
+        window_median = mpatches.Patch(color='green', label='Window Median')
+
+        axis.legend(handles=[sample_trial_patch, window_median],
+                    loc="upper right", frameon=False,
+                    prop={'size': 15})
+
+        # cents conversion
+        axis = self.axes[1]
+        axis.set_xlim([0, 125])
+        axis.set_ylabel("Pitch (cents)")
+        axis.set_xlabel("Time (ms)")
+        axis.set_xticks([0, 50, 75, 125])
+        axis.set_xticklabels(["0", "50", "150", "200"])
+
+        target_cents = 1200 * (np.log(window_means[TARGET]) - np.log(center_hz)) / np.log(2)
+
+        # rescale the windows
+        windows = (domain <= 50, np.logical_and(domain >= 75, domain <= 125))
+
+        axis.plot(domain, [0] * len(domain), color="black")
+
+        for i, window in enumerate(windows):
+            axis.plot(domain[window], len(domain[window]) * [target_cents[i]], color="blue",
+                      linewidth=2)
+
+            if target_cents[i] >= 0:
+                axis.add_patch(patches.Rectangle((min(domain[window]), 0),
+                                                 50, target_cents[i],
+                                                 color="blue", alpha=0.1))
+            else:
+                axis.add_patch(patches.Rectangle((min(domain[window]), target_cents[i]),
+                                                 50, abs(target_cents[i]),
+                                                 color="blue", alpha=0.1))
+
+            axis.plot(domain[window], len(domain[window]) * [0],
+                      color="green",
+                      linewidth=2)
+
+        axis = self.axes[2]
+        axis.set_xlim([0, 175])
+        axis.set_ylabel("Magnitude of Pitch (cents)")
+        axis.set_xlabel("Time (ms)")
+        axis.set_xticks([0, 50, 75, 125])
+        axis.set_xticklabels(["0", "50", "150", "200"])
+
+        target_cents = np.abs(1200 * (np.log(window_means[TARGET]) - np.log(center_hz)) / np.log(2))
+
+        # rescale the windows
+        windows = (domain <= 50, np.logical_and(domain >= 75, domain <= 125))
+
+        for i, window in enumerate(windows):
+            axis.plot(domain[window], len(domain[window]) * [target_cents[i]], color="blue",
+                      linewidth=2)
+            axis.plot(domain[window], len(domain[window]) * [0],
+                      color="green",
+                      linewidth=2)
+
+            if target_cents[i] >= 0:
+                axis.add_patch(patches.Rectangle((min(domain[window]), 0),
+                                                 50, target_cents[i],
+                                                 color="blue", alpha=0.1))
+            else:
+                axis.add_patch(patches.Rectangle((min(domain[window]), target_cents[i]),
+                                                 50, abs(target_cents[i]),
+                                                 color="blue", alpha=0.1), zorder=10)
+
         # plot the triangle
-        TRIANGLE_WIDTH = 40
-        TRIANGLE_OFFSET = 200
-        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, mean_pitches[0]],
-                                [TRIANGLE_OFFSET, mean_pitches[1]],
-                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, mean_pitches[0]]])
+        TRIANGLE_WIDTH = 30
+        TRIANGLE_OFFSET = 150
+        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, target_cents[0]],
+                                [TRIANGLE_OFFSET, target_cents[1]],
+                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, target_cents[0]]])
+        axis.fill(coordinates[:, 0], coordinates[:, 1],
+                  color="black",
+                  alpha=0.5,
+                  edgecolor="black")
 
-        # make the triangle take up the entire right-half of plot (plus a little margin)
-        annotation_axis.set_xlim([0, TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2 + 5])
-
-        # continue the dotted line
-        annotation_axis.plot([0, TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2], [mean_pitches[0]] * 2, color="black",
-                             linestyle="dotted")
-        annotation_axis.plot([0, TRIANGLE_OFFSET], [mean_pitches[1]] * 2, color="black", linestyle="dotted")
-
-        # add the text labels
-        TEXT_OFFSET = 15
-        annotation_axis.text(TEXT_OFFSET, mean_pitches[0], "$F_{\\mathrm{init}}$",
-                             backgroundcolor="white",
-                             verticalalignment="center",
-                             fontsize="medium")
-
-        annotation_axis.text(TEXT_OFFSET, mean_pitches[1], "$F_{\\mathrm{mid"
-        # u"\u2212"
-        # "trial
-                                                           "}}$",
-                             backgroundcolor="white",
-                             verticalalignment="center",
-                             fontsize="medium")
-
-        annotation_axis.fill(coordinates[:, 0], coordinates[:, 1],
-                             color="black",
-                             alpha=0.5,
-                             edgecolor="black")
+        # add the dotted labels
+        axis.plot([50, TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2], 2 * [target_cents[0]],
+                  color="black", linestyle="dotted")
+        axis.plot([125, TRIANGLE_OFFSET], 2 * [target_cents[1]],
+                  color="black", linestyle="dotted")
 
 
 class GroupPitchNormal(SubFigure):
@@ -709,5 +768,121 @@ class GroupPitchNormal(SubFigure):
             self.axes[axis_index].set_xticklabels([])
 
 
-# global settings
+class SensitivityDiscussion(Figure):
+    def __init__(self, render: bool = True, **kwargs):
+        Figure.__init__(self)
+
+        self.name = "discussion_figure_2"
+        self.sub_figures = []
+        self.kwargs = kwargs
+
+        if render:
+            self.render()
+
+    def render(self):
+        def sigmoid(arr, scale=1., offset=0):
+            arr = np.asarray(arr)
+            result = 1 / (1 + np.exp(-(arr - offset) * scale))
+            return result
+
+        SchematicAxes = self.figure.add_subplot(1, 1, 1)
+
+        SchematicAxes.set_xlim([-100, 100])
+        SchematicAxes.set_ylim([0, 1])
+        SchematicAxes.set_yticks([])
+
+        domains = [np.linspace(-200, 0, 400), np.linspace(0, 200, 400)]
+
+        SchematicAxes.plot(domains[0], sigmoid(-domains[0], scale=0.1, offset=50), color="teal",
+                           linewidth=3)
+        SchematicAxes.plot(domains[1], sigmoid(domains[1], scale=0.1, offset=50), color="teal",
+                           linewidth=3,
+                           label="Controls")
+        SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.1, offset=50), color="darkgoldenrod",
+                           linewidth=3)
+        SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.1, offset=50), color="darkgoldenrod",
+                           linewidth=3,
+                           label="AD")
+
+        # Let's look at a couple of datapoints
+        SchematicAxes.vlines([0, -50, 50], 0, 1, color="black", linestyle="dashed", alpha=0.5)
+
+        SchematicAxes.set_ylabel("Feedback Sensitivity")
+
+        SchematicAxes.legend(
+            loc="upper left",
+            frameon=True,
+        )
+
+        SchematicAxes.set_xlabel("Pitch Deviation from Median")
+
+
+class RecruitmentDiscussion(Figure):
+    def __init__(self, render: bool = True, **kwargs):
+        Figure.__init__(self)
+
+        self.name = "discussion_figure"
+        self.sub_figures = []
+        self.kwargs = kwargs
+
+        if render:
+            self.render()
+
+    def render(self):
+        def sigmoid(arr, scale=1., offset=0):
+            arr = np.asarray(arr)
+            result = 1 / (1 + np.exp(-(arr - offset) * scale))
+            return result
+
+        def derivative_sigmoid(arr, scale=1., offset=0):
+            arr = np.asarray(arr)
+            result = 1 / (np.exp((arr - offset)*scale) *
+                          (1 + np.exp(-(arr - offset) * scale)) ** 2)
+            return result
+
+        SchematicAxes = self.figure.add_subplot(2, 1, 1)
+
+        SchematicAxes.set_xlim([-100, 100])
+        SchematicAxes.set_xticklabels([])
+        SchematicAxes.set_ylim([0, 1])
+        SchematicAxes.set_yticks([])
+
+        domain = np.linspace(-100, 100, 200)
+
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=0), color="teal",
+                           linewidth=3,
+                           label="Controls")
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-30), color="darkgoldenrod",
+                           linewidth=3,
+                           label="AD")
+
+        # Let's look at a couple of datapoints
+        SchematicAxes.vlines([0, -50, 50], 0, 1, color="black", linestyle="dashed", alpha=0.5)
+
+        SchematicAxes.set_ylabel("MN Recruitment")
+
+        SchematicAxes.legend(
+            loc="upper left",
+            frameon=True,
+        )
+
+        DerivativeAxes = self.figure.add_subplot(2, 1, 2)
+
+        DerivativeAxes.set_xlim([-100, 100])
+        DerivativeAxes.set_ylim([0, 0.5])
+        DerivativeAxes.set_yticks([])
+
+        DerivativeAxes.set_xlabel("Pitch Deviation from Median")
+        DerivativeAxes.set_ylabel("Centering Trajectory")
+
+        DerivativeAxes.plot(domain, derivative_sigmoid(domain, scale=0.05, offset=0), color="teal",
+                            linewidth=3, label="Controls")
+        DerivativeAxes.plot(domain, derivative_sigmoid(domain, scale=0.05, offset=-30), color="darkgoldenrod",
+                            linewidth=3, label="AD")
+
+        # Let's look at a couple of datapoints
+        DerivativeAxes.vlines([0, -50, 50], 0, 1, color="black", linestyle="dashed", alpha=0.5)
+
+
+# global styles
 __global_styles()
