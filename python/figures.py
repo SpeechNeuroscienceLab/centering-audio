@@ -315,7 +315,7 @@ class GroupCenteringTercileDots(SubFigure):
         self.axes.set_xticklabels([self.label_map[bar["label"]] for bar in dots], rotation=0, ha="center")
         self.axes.tick_params(axis='x', length=0)
 
-        self.axes.set_ylabel("Magnitude of Initial Pitch (Cents)")
+        self.axes.set_ylabel("Magnitude of Initial Pitch Deviation (Cents)")
 
         self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
                                   for group in self.plot_order],
@@ -527,7 +527,7 @@ class GroupTercileArrows(SubFigure):
             axis.set_yticks([float(i) for i in range(1, len(subjects) + 1, 2)])
             axis.set_yticks([float(i) for i in range(2, len(subjects) + 1, 2)], minor=True)
             axis.set_yticklabels([str(i) for i in range(1, len(subjects) + 1, 2)])
-            axis.set_xlabel("Pitch (Cents)")
+            axis.set_xlabel("Pitch Deviation (Cents)")
 
 
 class CenteringMethods(Figure):
@@ -541,10 +541,10 @@ class CenteringMethods(Figure):
         return noisy_motion_points
 
     def __init__(self, motion_points: list, render: bool = True):
-        Figure.__init__(self, fig_size=(12.8, 4.8))
-        self.axes = [self.figure.add_subplot(1, 4, (1, 2)),
-                     self.figure.add_subplot(1, 4, 3),
-                     self.figure.add_subplot(1, 4, 4)]
+        Figure.__init__(self, fig_size=(14.08, 5.28))
+        self.axes = [self.figure.add_subplot(1, 8, (1, 4)),
+                     self.figure.add_subplot(1, 8, (5, 6)),
+                     self.figure.add_subplot(1, 8, (7, 8))]
 
         # reset the axes manually
         for axis in self.axes:
@@ -565,7 +565,7 @@ class CenteringMethods(Figure):
     def render(self):
         TARGET = 0
         self.figure.tight_layout()
-        self.figure.subplots_adjust(left=0.06, wspace=0.7)
+        self.figure.subplots_adjust(left=0.06, wspace=1)
 
         axis = self.axes[0]
         axis.set_ylabel("Pitch (hz)")
@@ -573,11 +573,7 @@ class CenteringMethods(Figure):
 
         domain = np.linspace(0, 200, len(self.tracks[0]), endpoint=True)
 
-        for i, track in enumerate(self.tracks):
-            if i != TARGET:
-                axis.plot(domain, track, color="black", linewidth=1, alpha=0.5)
-            else:
-                axis.plot(domain, track, color="blue", linewidth=1, alpha=0.5)
+        axis.plot(domain, self.tracks[TARGET], color="blue", linewidth=1, alpha=0.5)
 
         # add the "center" line
         axis.plot(domain, np.zeros(domain.shape), color="black")
@@ -612,7 +608,7 @@ class CenteringMethods(Figure):
                       linewidth=2)
 
         sample_trial_patch = mpatches.Patch(color='blue', label='Sample Trial')
-        window_median = mpatches.Patch(color='green', label='Window Median')
+        window_median = mpatches.Patch(color='green', label='Median')
 
         axis.legend(handles=[sample_trial_patch, window_median],
                     loc="upper right", frameon=False,
@@ -620,18 +616,19 @@ class CenteringMethods(Figure):
 
         # cents conversion
         axis = self.axes[1]
-        axis.set_xlim([0, 125])
-        axis.set_ylabel("Pitch (cents)")
-        axis.set_xlabel("Time (ms)")
-        axis.set_xticks([0, 50, 75, 125])
-        axis.set_xticklabels(["0", "50", "150", "200"])
+        axis.set_xlim([0, 175])
+        axis.set_ylabel("Pitch Deviation (cents)")
+        # axis.set_xlabel("Window")
+        axis.set_xticks([25, 100])
+        axis.set_xticklabels(["Initial", "Mid-trial"])
+        axis.tick_params(axis='x', length=0)
 
         target_cents = 1200 * (np.log(window_means[TARGET]) - np.log(center_hz)) / np.log(2)
 
         # rescale the windows
         windows = (domain <= 50, np.logical_and(domain >= 75, domain <= 125))
 
-        axis.plot(domain, [0] * len(domain), color="black")
+        axis.plot(domain, [0] * len(domain), color="black", zorder=1)
 
         for i, window in enumerate(windows):
             axis.plot(domain[window], len(domain[window]) * [target_cents[i]], color="blue",
@@ -650,12 +647,31 @@ class CenteringMethods(Figure):
                       color="green",
                       linewidth=2)
 
+        # plot the triangle
+        TRIANGLE_WIDTH = 30
+        TRIANGLE_OFFSET = 150
+        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, target_cents[0]],
+                                [TRIANGLE_OFFSET, target_cents[1]],
+                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, target_cents[0]]])
+        axis.fill(coordinates[:, 0], coordinates[:, 1],
+                  color="gray",
+                  alpha=1.,
+                  edgecolor="black",
+                  zorder=150)
+
+        axis.plot([50, TRIANGLE_OFFSET - (TRIANGLE_WIDTH/2)], 2 * [target_cents[0]],
+                  color="black", linestyle="dotted")
+        axis.plot([125, TRIANGLE_OFFSET], 2 * [target_cents[1]],
+                  color="black", linestyle="dotted")
+
         axis = self.axes[2]
-        axis.set_xlim([0, 175])
-        axis.set_ylabel("Magnitude of Pitch (cents)")
-        axis.set_xlabel("Time (ms)")
-        axis.set_xticks([0, 50, 75, 125])
-        axis.set_xticklabels(["0", "50", "150", "200"])
+        axis.set_xlim([0, 150])
+        axis.set_ylabel("Magnitude of Pitch Deviation (cents)")
+        # axis.set_xlabel("Window")
+
+        axis.set_xticks([25, 100])
+        axis.set_xticklabels(["Initial", "Mid-trial"])
+        axis.tick_params(axis='x', length=0)
 
         target_cents = np.abs(1200 * (np.log(window_means[TARGET]) - np.log(center_hz)) / np.log(2))
 
@@ -678,21 +694,24 @@ class CenteringMethods(Figure):
                                                  50, abs(target_cents[i]),
                                                  color="blue", alpha=0.1), zorder=10)
 
-        # plot the triangle
-        TRIANGLE_WIDTH = 30
-        TRIANGLE_OFFSET = 150
-        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, target_cents[0]],
-                                [TRIANGLE_OFFSET, target_cents[1]],
-                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, target_cents[0]]])
-        axis.fill(coordinates[:, 0], coordinates[:, 1],
-                  color="black",
-                  alpha=0.5,
-                  edgecolor="black")
+        LABEL_OFFSET = 135
+        arrowhead_size = 1.5
 
-        # add the dotted labels
-        axis.plot([50, TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2], 2 * [target_cents[0]],
+        # add centering text label
+        axis.arrow(LABEL_OFFSET, target_cents[0], dx=0, dy=target_cents[1]-target_cents[0]+arrowhead_size,
+                   head_width=arrowhead_size*2, head_length=arrowhead_size,
+                   color="grey")
+
+        axis.text(LABEL_OFFSET - defaults["annotation-vertical-padding"],
+                  np.abs(target_cents[1] + target_cents[0])/2, "centering",
+                  horizontalalignment="right",
+                  verticalalignment="center",
+                  size=defaults["annotation-text-size"],
+                  rotation='vertical')
+
+        axis.plot([50, LABEL_OFFSET], 2 * [target_cents[0]],
                   color="black", linestyle="dotted")
-        axis.plot([125, TRIANGLE_OFFSET], 2 * [target_cents[1]],
+        axis.plot([125, LABEL_OFFSET], 2 * [target_cents[1]],
                   color="black", linestyle="dotted")
 
 
@@ -761,7 +780,7 @@ class GroupPitchNormal(SubFigure):
                         prop={'size': 15})
 
         # only label the bottom-most value
-        self.axes[-1].set_xlabel("Pitch (Cents)")
+        self.axes[-1].set_xlabel("Pitch Deviation (Cents)")
 
         for axis_index in range(len(self.axes) - 1):
             # disable tick marks for all except the last normal dist
