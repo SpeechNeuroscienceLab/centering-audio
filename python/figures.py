@@ -835,27 +835,27 @@ class SensitivityDiscussion(SubFigure):
 
         SchematicAxes = self.axis
 
-        SchematicAxes.set_xlim([-100, 100])
+        SchematicAxes.set_xlim([-200, 200])
         SchematicAxes.set_ylim([0, 1])
         SchematicAxes.set_yticklabels([])
         SchematicAxes.set_yticks([])
 
         domains = [np.linspace(-200, 0, 400), np.linspace(0, 200, 400)]
 
-        SchematicAxes.plot(domains[0], sigmoid(-domains[0], scale=0.1, offset=50), color="teal",
+        SchematicAxes.plot(domains[0], sigmoid(-domains[0], scale=0.05, offset=100), color="teal",
                            linewidth=3)
-        SchematicAxes.plot(domains[1], sigmoid(domains[1], scale=0.1, offset=50), color="teal",
+        SchematicAxes.plot(domains[1], sigmoid(domains[1], scale=0.05, offset=100), color="teal",
                            linewidth=3,
                            label="Controls")
-        SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.1, offset=50), color="darkgoldenrod",
+        SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.05, offset=100), color="darkgoldenrod",
                            linewidth=3)
-        SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.1, offset=50), color="darkgoldenrod",
+        SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.05, offset=100), color="darkgoldenrod",
                            linewidth=3,
                            label="AD")
 
         SchematicAxes.set_ylabel("Feedback Sensitivity")
 
-        x_ticks = np.arange(-100, 101, 50)
+        x_ticks = np.arange(-200, 201, 100)
         y_ticks = np.arange(0, 1, 0.25)
         SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
         SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
@@ -875,23 +875,23 @@ class RecruitmentDiscussion(SubFigure):
 
         SchematicAxes = self.axis
 
-        SchematicAxes.set_xlim([-100, 100])
+        SchematicAxes.set_xlim([-200, 200])
         SchematicAxes.set_xticklabels([])
         SchematicAxes.set_ylim([0, 1])
         SchematicAxes.set_yticklabels([])
 
-        domain = np.linspace(-100, 100, 200)
+        domain = np.linspace(-200, 200, 400)
 
         SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=0), color="teal",
                            linewidth=3,
                            label="Controls")
-        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-30), color="darkgoldenrod",
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-60), color="darkgoldenrod",
                            linewidth=3,
                            label="AD")
 
         SchematicAxes.set_ylabel("MN Recruitment")
 
-        x_ticks = np.arange(-100, 100, 50)
+        x_ticks = np.arange(-200, 200, 100)
         y_ticks = np.arange(0, 1, 0.25)
         SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
         SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
