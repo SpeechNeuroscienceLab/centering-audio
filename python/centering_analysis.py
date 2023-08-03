@@ -273,8 +273,7 @@ def main():
                 "peripheral": peripheral_experiment,
             },
             plot_order=["Controls", "AD Patients"]),
-        figures.RecruitmentDiscussion(),
-        figures.SensitivityDiscussion()
+        figures.Discussion(),
     ]
 
     # manually set the normal distribution limits

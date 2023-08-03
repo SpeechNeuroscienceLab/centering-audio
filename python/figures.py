@@ -119,7 +119,7 @@ class Figure:
 
 
 class SubFigure:
-    def __init__(self, colormap: dict = None, **kwargs):
+    def __init__(self, colormap: dict = None):
         if colormap is None:
             self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
         else:
@@ -562,6 +562,10 @@ class CenteringMethods(Figure):
         if render:
             self.render()
 
+        self.figure.text(0.01, 0.95, "A", fontsize="xx-large", fontweight="bold")
+        self.figure.text(1/2, 0.95, "B", fontsize="xx-large", fontweight="bold")
+        self.figure.text(3/4, 0.95, "C", fontsize="xx-large", fontweight="bold")
+
     def render(self):
         TARGET = 0
         self.figure.tight_layout()
@@ -655,11 +659,21 @@ class CenteringMethods(Figure):
                                 [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, target_cents[0]]])
         axis.fill(coordinates[:, 0], coordinates[:, 1],
                   color="gray",
-                  alpha=1.,
+                  alpha=.7,
                   edgecolor="black",
                   zorder=150)
 
-        axis.plot([50, TRIANGLE_OFFSET - (TRIANGLE_WIDTH/2)], 2 * [target_cents[0]],
+        axis.text(TRIANGLE_OFFSET,
+                  (max(target_cents) - len("pitch movement") - 3),
+                  "pitch movement",
+                  horizontalalignment="center",
+                  verticalalignment="center",
+                  size=defaults["annotation-text-size"],
+                  rotation='vertical',
+                  color="black",
+                  zorder=200)
+
+        axis.plot([50, TRIANGLE_OFFSET - (TRIANGLE_WIDTH / 2)], 2 * [target_cents[0]],
                   color="black", linestyle="dotted")
         axis.plot([125, TRIANGLE_OFFSET], 2 * [target_cents[1]],
                   color="black", linestyle="dotted")
@@ -698,12 +712,12 @@ class CenteringMethods(Figure):
         arrowhead_size = 1.5
 
         # add centering text label
-        axis.arrow(LABEL_OFFSET, target_cents[0], dx=0, dy=target_cents[1]-target_cents[0]+arrowhead_size,
-                   head_width=arrowhead_size*2, head_length=arrowhead_size,
+        axis.arrow(LABEL_OFFSET, target_cents[0], dx=0, dy=target_cents[1] - target_cents[0] + arrowhead_size,
+                   head_width=arrowhead_size * 2, head_length=arrowhead_size,
                    color="grey")
 
         axis.text(LABEL_OFFSET - defaults["annotation-vertical-padding"],
-                  np.abs(target_cents[1] + target_cents[0])/2, "centering",
+                  np.abs(target_cents[1] + target_cents[0]) / 2, "centering",
                   horizontalalignment="right",
                   verticalalignment="center",
                   size=defaults["annotation-text-size"],
@@ -787,16 +801,31 @@ class GroupPitchNormal(SubFigure):
             self.axes[axis_index].set_xticklabels([])
 
 
-class SensitivityDiscussion(Figure):
+class Discussion(Figure):
     def __init__(self, render: bool = True, **kwargs):
         Figure.__init__(self)
 
-        self.name = "discussion_figure_2"
+        self.name = "discussion_figure"
         self.sub_figures = []
         self.kwargs = kwargs
 
+        self.axes = [self.figure.add_subplot(2, 1, 1),
+                     self.figure.add_subplot(2, 1, 2)]
+
         if render:
             self.render()
+        self.figure.text(0.03, 0.9, "A", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.03, 0.45, "B", fontsize="xx-large", fontweight="bold")
+
+    def render(self):
+        RecruitmentDiscussion(self.axes[0]).render()
+        SensitivityDiscussion(self.axes[1]).render()
+
+
+class SensitivityDiscussion(SubFigure):
+    def __init__(self, axis, **kwargs):
+        super().__init__(**kwargs)
+        self.axis = axis
 
     def render(self):
         def sigmoid(arr, scale=1., offset=0):
@@ -804,10 +833,11 @@ class SensitivityDiscussion(Figure):
             result = 1 / (1 + np.exp(-(arr - offset) * scale))
             return result
 
-        SchematicAxes = self.figure.add_subplot(1, 1, 1)
+        SchematicAxes = self.axis
 
         SchematicAxes.set_xlim([-100, 100])
         SchematicAxes.set_ylim([0, 1])
+        SchematicAxes.set_yticklabels([])
         SchematicAxes.set_yticks([])
 
         domains = [np.linspace(-200, 0, 400), np.linspace(0, 200, 400)]
@@ -823,29 +853,19 @@ class SensitivityDiscussion(Figure):
                            linewidth=3,
                            label="AD")
 
-        # Let's look at a couple of datapoints
-        SchematicAxes.vlines([0, -50, 50], 0, 1, color="black", linestyle="dashed", alpha=0.5)
-
         SchematicAxes.set_ylabel("Feedback Sensitivity")
 
-        SchematicAxes.legend(
-            loc="upper left",
-            frameon=True,
-        )
+        x_ticks = np.arange(-100, 101, 50)
+        y_ticks = np.arange(0, 1, 0.25)
+        SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
+        SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
 
         SchematicAxes.set_xlabel("Pitch Deviation from Median")
 
 
-class RecruitmentDiscussion(Figure):
-    def __init__(self, render: bool = True, **kwargs):
-        Figure.__init__(self)
-
-        self.name = "discussion_figure"
-        self.sub_figures = []
-        self.kwargs = kwargs
-
-        if render:
-            self.render()
+class RecruitmentDiscussion(SubFigure):
+    def __init__(self, axis):
+        self.axis = axis
 
     def render(self):
         def sigmoid(arr, scale=1., offset=0):
@@ -853,18 +873,12 @@ class RecruitmentDiscussion(Figure):
             result = 1 / (1 + np.exp(-(arr - offset) * scale))
             return result
 
-        def derivative_sigmoid(arr, scale=1., offset=0):
-            arr = np.asarray(arr)
-            result = 1 / (np.exp((arr - offset)*scale) *
-                          (1 + np.exp(-(arr - offset) * scale)) ** 2)
-            return result
-
-        SchematicAxes = self.figure.add_subplot(2, 1, 1)
+        SchematicAxes = self.axis
 
         SchematicAxes.set_xlim([-100, 100])
         SchematicAxes.set_xticklabels([])
         SchematicAxes.set_ylim([0, 1])
-        SchematicAxes.set_yticks([])
+        SchematicAxes.set_yticklabels([])
 
         domain = np.linspace(-100, 100, 200)
 
@@ -875,32 +889,15 @@ class RecruitmentDiscussion(Figure):
                            linewidth=3,
                            label="AD")
 
-        # Let's look at a couple of datapoints
-        SchematicAxes.vlines([0, -50, 50], 0, 1, color="black", linestyle="dashed", alpha=0.5)
-
         SchematicAxes.set_ylabel("MN Recruitment")
 
-        SchematicAxes.legend(
-            loc="upper left",
-            frameon=True,
-        )
+        x_ticks = np.arange(-100, 100, 50)
+        y_ticks = np.arange(0, 1, 0.25)
+        SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
+        SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
 
-        DerivativeAxes = self.figure.add_subplot(2, 1, 2)
-
-        DerivativeAxes.set_xlim([-100, 100])
-        DerivativeAxes.set_ylim([0, 0.5])
-        DerivativeAxes.set_yticks([])
-
-        DerivativeAxes.set_xlabel("Pitch Deviation from Median")
-        DerivativeAxes.set_ylabel("Centering Trajectory")
-
-        DerivativeAxes.plot(domain, derivative_sigmoid(domain, scale=0.05, offset=0), color="teal",
-                            linewidth=3, label="Controls")
-        DerivativeAxes.plot(domain, derivative_sigmoid(domain, scale=0.05, offset=-30), color="darkgoldenrod",
-                            linewidth=3, label="AD")
-
-        # Let's look at a couple of datapoints
-        DerivativeAxes.vlines([0, -50, 50], 0, 1, color="black", linestyle="dashed", alpha=0.5)
+        SchematicAxes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.30),
+                             ncol=2, frameon=False)
 
 
 # global styles
