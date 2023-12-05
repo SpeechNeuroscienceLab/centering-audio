@@ -1,13 +1,15 @@
+import colorsys
+from pprint import pprint
+
+import matplotlib.colors as colors
+import matplotlib.patches as patches
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import matplotlib.style as style
-import matplotlib.patches as patches
-import matplotlib.colors as colors
-import colorsys
 import numpy as np
 from scipy.stats import norm
+
 from experiment import Experiment
-from pprint import pprint
-import matplotlib.patches as mpatches
 
 
 class ColorUtils:
@@ -46,8 +48,8 @@ class Annotations:
         axes.plot([end[0], dashed_end], [end[1], end[1]], color=color, linestyle="dotted")
 
 
-def __default_group_colormap():
-    return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+# def __default_group_colormap():
+#     return {"AD Patients": "darkgoldenrod", "Controls": "teal"}
 
 
 defaults = {
@@ -771,7 +773,8 @@ class GroupPitchNormal(SubFigure):
             group_data = self.experiment.df[self.experiment.df["Group"] == group]
 
             axis: plt.Axes
-            axis.set_ylabel(default_group_name_map()[group])
+            axis.set_title(default_group_name_map()[group])
+            axis.set_ylabel("Probability")
             axis.set_yticks([])
             axis.set_xlim(*limits)
             axis.tick_params(axis="x", direction="out")
@@ -899,6 +902,100 @@ class RecruitmentDiscussion(SubFigure):
         SchematicAxes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.30),
                              ncol=2, frameon=False)
 
+class Extra(Figure):
+    def __init__(self, experiment: Experiment, plot_order: list = [], render: bool = True, **kwargs):
+        Figure.__init__(self)
 
+        self.name = "extra_figure"
+        self.experiment = experiment
+        self.sub_figures = []
+        self.kwargs = kwargs
+        self.axes = [self.figure.add_subplot(1, 1, 1)]
+        self.plot_order = plot_order
+
+        if render:
+            self.render()
+
+    def render(self):
+        PitchMovement(self.experiment, self.axes[0], self.plot_order).render()
+
+class PitchMovement(SubFigure):
+    def __init__(self, experiment: Experiment, axes: plt.Axes, plot_order: list = [],
+                 colormap: dict = {}):
+        SubFigure.__init__(self, colormap=colormap)
+        self.axes = axes
+
+        self.bar_x = None
+        self.bar_y = None
+        self.experiment = experiment
+
+        self.label_map = {
+            "UPPER": "Upper\nTercile",
+            "LOWER": "Lower\nTercile"
+        }
+
+        self.colormap = {
+            "AD Patients": "goldenrod",
+            "Controls": "teal"
+        }
+
+        print(f"Plot order {plot_order}")
+        self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
+        self.render()
+
+    def render(self):
+        # (label, height, error, color, fill-style)
+        bars = []
+
+        for group in self.plot_order:
+            group_data = self.experiment.df[self.experiment.df["Group"] == group]
+            for tercile_index, tercile in enumerate(group_data["Tercile"].drop_duplicates()):
+                tercile_data = group_data[group_data["Tercile"] == tercile]
+                bars.append({
+                    "group": group,
+                    "label": tercile,
+                    "height": np.nanmean(tercile_data["NormPitchMovement"]),
+                    "error": StatisticsHelpers.standard_error(tercile_data["NormPitchMovement"]),
+                    "color": self.colormap[group],
+                })
+
+        print("Group Tercile Pitch Movement Bar Data:")
+        pprint(bars)
+
+        self.bar_x = np.arange(len(bars), dtype=np.float64)
+        self.bar_y = [bar["height"] + bar["error"] for bar in bars]
+
+        # insert spaces between groups
+        for i in range(len(bars)):
+            if i > 0 and bars[i - 1]["group"] != bars[i]["group"]:
+                self.bar_x[i:] += defaults["bar-group-spacing"]
+
+        self.axes.bar(x=self.bar_x,
+                      height=[bar["height"] for bar in bars],
+                      color=[bar["color"] for bar in bars],
+                      alpha=0.9,
+                      hatch=["/", " ", "/", ""]
+                      )
+
+        self.axes.set_xticks(ticks=self.bar_x)
+        self.axes.set_xticklabels([self.label_map[bar["label"]] for bar in bars], rotation=0, ha="center")
+        self.axes.tick_params(axis='x', length=0)
+
+        self.axes.set_ylabel("Pitch Movement (Cents)")
+
+        self.axes.errorbar(x=self.bar_x,
+                           y=[bar["height"] for bar in bars],
+                           yerr=[bar["error"] for bar in bars],
+                           color=defaults["error-color"],
+                           elinewidth=defaults["line-width"],
+                           capthick=defaults["line-width"],
+                           capsize=defaults["error-cap-size"],
+                           ls=defaults["error-line-style"])
+
+        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
+                                  for group in self.plot_order],
+                         loc="upper left",
+                         frameon=False,
+                         prop={'size': 15})
 # global styles
 __global_styles()

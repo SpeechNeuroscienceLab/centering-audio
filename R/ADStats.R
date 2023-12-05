@@ -85,3 +85,36 @@ anova(central_peripheral_lme)
 central_peripheral_lsm <- lsmeans(central_peripheral_lme, ~ Group * Tercile)
 summary(pairs(central_peripheral_lsm, adjust = "none"))
 
+# Pitch Movement statistics 
+print("Pitch Movement (unnormalized)")
+ad_table <- read.csv(
+    paste0("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/",
+    run, "/pitch-movement-table.csv"), header = TRUE, stringsAsFactors = FALSE)
+
+# LME
+adlme <- lme(PitchMovement ~ Group * Tercile,
+             random = ~1 | Subject / Trial,
+             data = ad_table,
+             cor = corSymm(form = ~ 1 | Subject / Trial))
+
+anova(adlme)
+
+lsm <- lsmeans(adlme, ~ Group * Tercile)
+summary(pairs(lsm, adjust = "none"))
+
+# Normalized Pitch Movement statistics 
+print("Normalized Pitch Movement")
+ad_table <- read.csv(
+    paste0("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/",
+    run, "/pitch-movement-table.csv"), header = TRUE, stringsAsFactors = FALSE)
+
+# LME
+adlme <- lme(NormPitchMovement ~ Group * Tercile,
+             random = ~1 | Subject / Trial,
+             data = ad_table,
+             cor = corSymm(form = ~ 1 | Subject / Trial))
+
+anova(adlme)
+
+lsm <- lsmeans(adlme, ~ Group * Tercile)
+summary(pairs(lsm, adjust = "none"))

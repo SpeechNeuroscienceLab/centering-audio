@@ -1,42 +1,62 @@
 # import statements
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from experiment import Experiment
-from pathlib import Path
-import figures
 import extra
+import figures
+from experiment import Experiment
 
 
 class CenteringAnalysis:
     # contains methods for trimming subjects
     class Trim:
         @staticmethod
-        def by_subject_name(experiment: Experiment, exclude: list, inplace=True,
-                            indexing=("Group Name", "Subject Name")):
+        def by_subject_name(
+            experiment: Experiment,
+            exclude: list,
+            inplace=True,
+            indexing=("Group Name", "Subject Name"),
+        ):
             trimmed_experiment = experiment if inplace else experiment.copy()
 
             for group, subject in exclude:
                 print(f"Manually removing {group}/{subject} from the analysis")
-                experiment.df.drop(experiment.df[(experiment.df[indexing[0]] == group) &
-                                                 (experiment.df[indexing[1]] == subject)].index, inplace=True)
+                experiment.df.drop(
+                    experiment.df[
+                        (experiment.df[indexing[0]] == group)
+                        & (experiment.df[indexing[1]] == subject)
+                    ].index,
+                    inplace=True,
+                )
             trimmed_experiment.update_subjects()
 
             trimmed_experiment.df.reset_index(inplace=True, drop=True)
             return trimmed_experiment
 
         @staticmethod
-        def by_subject_trial_count(experiment: Experiment, min_trials: int = 25, inplace=True,
-                                   indexing=("Group Name", "Subject Name")):
+        def by_subject_trial_count(
+            experiment: Experiment,
+            min_trials: int = 25,
+            inplace=True,
+            indexing=("Group Name", "Subject Name"),
+        ):
             trimmed_experiment = experiment if inplace else experiment.copy()
 
             for group, subjects in trimmed_experiment.subjects.items():
                 for subject in subjects:
-                    subject_trials_df = trimmed_experiment.df[(trimmed_experiment.df[indexing[0]] == group)
-                                                              & (trimmed_experiment.df[indexing[1]] == subject)]
+                    subject_trials_df = trimmed_experiment.df[
+                        (trimmed_experiment.df[indexing[0]] == group)
+                        & (trimmed_experiment.df[indexing[1]] == subject)
+                    ]
                     if subject_trials_df.shape[0] < min_trials:
-                        print(f"Excluding {group}/{subject}: {subject_trials_df.shape[0]}/{min_trials}")
-                        trimmed_experiment.df.drop(subject_trials_df.index, inplace=True)
+                        print(
+                            f"Excluding {group}/{subject}: {subject_trials_df.shape[0]}/{min_trials}"
+                        )
+                        trimmed_experiment.df.drop(
+                            subject_trials_df.index, inplace=True
+                        )
 
             trimmed_experiment.update_subjects()
 
@@ -44,40 +64,58 @@ class CenteringAnalysis:
             return trimmed_experiment
 
         @staticmethod
-        def by_subject_initial_pitch_distribution(experiment: Experiment, std_threshold=2, inplace=True,
-                                                  indexing=("Group Name", "Subject Name", "Starting Pitch (Cents)")):
+        def by_subject_initial_pitch_distribution(
+            experiment: Experiment,
+            std_threshold=2,
+            inplace=True,
+            indexing=("Group Name", "Subject Name", "Starting Pitch (Cents)"),
+        ):
             trimmed_experiment = experiment if inplace else experiment.copy()
             for group, subjects in experiment.subjects.items():
                 for subject in subjects:
-                    subject_trials = trimmed_experiment.df[(trimmed_experiment.df[indexing[0]] == group)
-                                                           & (trimmed_experiment.df[indexing[1]] == subject)]
+                    subject_trials = trimmed_experiment.df[
+                        (trimmed_experiment.df[indexing[0]] == group)
+                        & (trimmed_experiment.df[indexing[1]] == subject)
+                    ]
 
                     subj_mean = np.mean(subject_trials[indexing[2]])
                     subj_std = np.std(subject_trials[indexing[2]])
 
-                    outliers = subject_trials[np.abs(subject_trials[indexing[2]] - subj_mean)
-                                              > std_threshold * subj_std]
+                    outliers = subject_trials[
+                        np.abs(subject_trials[indexing[2]] - subj_mean)
+                        > std_threshold * subj_std
+                    ]
 
                     trimmed_experiment.df.drop(outliers.index, inplace=True)
 
-                    print(f"{group}/{subject}: {outliers.shape[0]}/{subject_trials.shape[0]} outliers.")
+                    print(
+                        f"{group}/{subject}: {outliers.shape[0]}/{subject_trials.shape[0]} outliers."
+                    )
 
             trimmed_experiment.df.reset_index(inplace=True, drop=True)
             return trimmed_experiment
 
         @staticmethod
-        def by_group_initial_pitch_distribution(experiment: Experiment, std_threshold=2, inplace=True,
-                                                indexing=("Group Name", "Starting Pitch (Cents)")):
+        def by_group_initial_pitch_distribution(
+            experiment: Experiment,
+            std_threshold=2,
+            inplace=True,
+            indexing=("Group Name", "Starting Pitch (Cents)"),
+        ):
             trimmed_experiment = experiment if inplace else experiment.copy()
 
             for group in experiment.subjects:
-                group_trials = trimmed_experiment.df[(trimmed_experiment.df[indexing[0]] == group)]
+                group_trials = trimmed_experiment.df[
+                    (trimmed_experiment.df[indexing[0]] == group)
+                ]
 
                 subj_mean = np.mean(group_trials[indexing[1]])
                 subj_std = np.std(group_trials[indexing[1]])
 
-                outliers = group_trials[np.abs(group_trials[indexing[1]] - subj_mean)
-                                        > std_threshold * subj_std]
+                outliers = group_trials[
+                    np.abs(group_trials[indexing[1]] - subj_mean)
+                    > std_threshold * subj_std
+                ]
 
                 trimmed_experiment.df.drop(outliers.index, inplace=True)
 
@@ -88,7 +126,11 @@ class CenteringAnalysis:
 
     class ComputeColumn:
         @staticmethod
-        def trial_index(experiment: Experiment, inplace=True, indexing=("Group Name", "Subject Name", "Trial Index")):
+        def trial_index(
+            experiment: Experiment,
+            inplace=True,
+            indexing=("Group Name", "Subject Name", "Trial Index"),
+        ):
             updated_experiment = experiment if inplace else experiment.copy()
 
             # add the trial index column if it doesn't exist already
@@ -97,11 +139,15 @@ class CenteringAnalysis:
 
             for group, subjects in updated_experiment.subjects.items():
                 for subject in subjects:
-                    subject_trials = updated_experiment.df[(updated_experiment.df[indexing[0]] == group)
-                                                           & (updated_experiment.df[indexing[1]] == subject)]
+                    subject_trials = updated_experiment.df[
+                        (updated_experiment.df[indexing[0]] == group)
+                        & (updated_experiment.df[indexing[1]] == subject)
+                    ]
 
                     # set the original index of each trial
-                    subject_trials = subject_trials.assign(**{indexing[2]: np.arange(1, subject_trials.shape[0] + 1)})
+                    subject_trials = subject_trials.assign(
+                        **{indexing[2]: np.arange(1, subject_trials.shape[0] + 1)}
+                    )
 
                     # save changes to the original dataframe
                     updated_experiment.df.update(subject_trials)
@@ -109,26 +155,40 @@ class CenteringAnalysis:
             return updated_experiment
 
         @staticmethod
-        def tercile(experiment: Experiment, inplace=True, indexing=("Group Name", "Subject Name",
-                                                                    "Starting Pitch (Cents)", "Trial Tercile")):
+        def tercile(
+            experiment: Experiment,
+            inplace=True,
+            indexing=(
+                "Group Name",
+                "Subject Name",
+                "Starting Pitch (Cents)",
+                "Trial Tercile",
+            ),
+        ):
             updated_experiment = experiment if inplace else experiment.copy()
 
             # by default, label as blank
             updated_experiment.df[indexing[3]] = ""
             for group, subjects in updated_experiment.subjects.items():
                 for subject in subjects:
-                    subject_trials = updated_experiment.df[(updated_experiment.df[indexing[0]] == group)
-                                                           & (updated_experiment.df[indexing[1]] == subject)].copy()
+                    subject_trials = updated_experiment.df[
+                        (updated_experiment.df[indexing[0]] == group)
+                        & (updated_experiment.df[indexing[1]] == subject)
+                    ].copy()
 
                     # tercile markers are placed at the 33rd and 66th percentile
-                    tercile_markers = np.percentile(subject_trials[indexing[2]],
-                                                    100 * np.arange(1, 3) / 3)
+                    tercile_markers = np.percentile(
+                        subject_trials[indexing[2]], 100 * np.arange(1, 3) / 3
+                    )
 
                     subject_trials[indexing[3]] = subject_trials.apply(
-                        lambda row:
-                        "UPPER" if row[indexing[2]] > tercile_markers[1] else
-                        "LOWER" if row[indexing[2]] < tercile_markers[0]
-                        else "CENTRAL", axis=1)
+                        lambda row: "UPPER"
+                        if row[indexing[2]] > tercile_markers[1]
+                        else "LOWER"
+                        if row[indexing[2]] < tercile_markers[0]
+                        else "CENTRAL",
+                        axis=1,
+                    )
 
                     # save changes to the original dataframe
                     updated_experiment.df.update(subject_trials)
@@ -136,11 +196,15 @@ class CenteringAnalysis:
             return updated_experiment
 
     @staticmethod
-    def drop_central_trials(experiment: Experiment, inplace=True, indexing="Trial Tercile"):
+    def drop_central_trials(
+        experiment: Experiment, inplace=True, indexing="Trial Tercile"
+    ):
         updated_experiment = experiment if inplace else experiment.copy()
         # delete all central trials
-        updated_experiment.df.drop(updated_experiment.df[
-                                       (updated_experiment.df[indexing] == "CENTRAL")].index, inplace=True)
+        updated_experiment.df.drop(
+            updated_experiment.df[(updated_experiment.df[indexing] == "CENTRAL")].index,
+            inplace=True,
+        )
         return updated_experiment
 
     @staticmethod
@@ -150,14 +214,20 @@ class CenteringAnalysis:
         for group, subjects in updated_experiment.subjects.items():
             for idx, subject in enumerate(subjects):
                 # for each group, rename the subject
-                updated_experiment.df[indexing].replace(subject, (group + str(idx)).replace(" ", ""), inplace=True)
+                updated_experiment.df[indexing].replace(
+                    subject, (group + str(idx)).replace(" ", ""), inplace=True
+                )
 
         return updated_experiment
 
 
 # input args
-INPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/analyze_audio.csv"
-OUTPUT_PATH = "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/publication/"
+INPUT_PATH = (
+    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/analyze_audio.csv"
+)
+OUTPUT_PATH = (
+    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/publication/"
+)
 
 COLUMN_MAP = {
     "Group Name": "Group",
@@ -166,7 +236,7 @@ COLUMN_MAP = {
     "Ending Pitch (Cents)": "EndingPitch",
     "Centering (Cents)": "Centering",
     "Trial Tercile": "Tercile",
-    "Trial Index": "Trial"
+    "Trial Index": "Trial",
 }
 
 
@@ -178,17 +248,25 @@ def main():
     std_threshold = 2
     trim_bundle = "group"
 
-    print(f"Using trimming method '{run}' within each {trim_bundle} with std factor {std_threshold}")
+    print(
+        f"Using trimming method '{run}' within each {trim_bundle} with std factor {std_threshold}"
+    )
 
     # for auto-trimming
     trimmed_experiment = experiment.copy()
     CenteringAnalysis.Trim.by_subject_trial_count(trimmed_experiment)
-    CenteringAnalysis.Trim.by_group_initial_pitch_distribution(trimmed_experiment, std_threshold=std_threshold)
+    CenteringAnalysis.Trim.by_group_initial_pitch_distribution(
+        trimmed_experiment, std_threshold=std_threshold
+    )
 
     # manually exclude subjects
-    CenteringAnalysis.Trim.by_subject_name(trimmed_experiment, exclude=[("AD Patients", "20160128_1")])
+    CenteringAnalysis.Trim.by_subject_name(
+        trimmed_experiment, exclude=[("AD Patients", "20160128_1")]
+    )
 
-    print(f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}")
+    print(
+        f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}"
+    )
 
     # compute terciles
     CenteringAnalysis.ComputeColumn.tercile(trimmed_experiment)
@@ -210,13 +288,16 @@ def main():
     trimmed_experiment.df.rename(columns=COLUMN_MAP, inplace=True)
 
     # separate into only peripheral trials
-    peripheral_experiment = CenteringAnalysis.drop_central_trials(trimmed_experiment,
-                                                                  inplace=False, indexing="Tercile")
+    peripheral_experiment = CenteringAnalysis.drop_central_trials(
+        trimmed_experiment, inplace=False, indexing="Tercile"
+    )
     # recompute trial indices for peripheral trials
-    CenteringAnalysis.ComputeColumn.trial_index(peripheral_experiment, inplace=True,
-                                                indexing=("Group", "Subject", "Trial"))
-    CenteringAnalysis.ComputeColumn.trial_index(trimmed_experiment, inplace=True,
-                                                indexing=("Group", "Subject", "Trial"))
+    CenteringAnalysis.ComputeColumn.trial_index(
+        peripheral_experiment, inplace=True, indexing=("Group", "Subject", "Trial")
+    )
+    CenteringAnalysis.ComputeColumn.trial_index(
+        trimmed_experiment, inplace=True, indexing=("Group", "Subject", "Trial")
+    )
 
     output_folder = OUTPUT_PATH
     # Create the output folder if it doesn't exist already
@@ -227,15 +308,34 @@ def main():
     # write all data to disk
     trimmed_experiment.to_csv(f"{output_folder}all-terciles-centering-analysis.csv")
 
+    # pitch movement table
+    pitch_movement_table = peripheral_experiment.df.copy()
+    pitch_movement_table["PitchMovement"] = (
+        pitch_movement_table["InitialPitch"] - pitch_movement_table["EndingPitch"]
+    )
+    pitch_movement_table["NormPitchMovement"] = np.where(
+        pitch_movement_table["InitialPitch"] >= 0,
+        pitch_movement_table["InitialPitch"] - pitch_movement_table["EndingPitch"],
+        pitch_movement_table["EndingPitch"] - pitch_movement_table["InitialPitch"],
+    )
+    pitch_movement_experiment = Experiment(pitch_movement_table)
+    pitch_movement_experiment.subjects = peripheral_experiment.subjects.copy()
+    pitch_movement_table.to_csv(f"{output_folder}pitch-movement-table.csv")
+
     # write the pitch variance table
-    pitch_variance_table = pd.melt(peripheral_experiment.df,
-                                   id_vars=["Group", "Subject"],
-                                   value_vars=["InitialPitch", "EndingPitch"],
-                                   var_name="SamplingTime",
-                                   value_name="Pitch")
-    pitch_variance_table["PitchVariance"] = (pitch_variance_table.groupby(
-        ["Group", "Subject", "SamplingTime"])["Pitch"]).transform(lambda x: np.var(x))
-    pitch_variance_table.drop_duplicates(subset=["Group", "Subject", "SamplingTime"], keep="first", inplace=True)
+    pitch_variance_table = pd.melt(
+        peripheral_experiment.df,
+        id_vars=["Group", "Subject"],
+        value_vars=["InitialPitch", "EndingPitch"],
+        var_name="SamplingTime",
+        value_name="Pitch",
+    )
+    pitch_variance_table["PitchVariance"] = (
+        pitch_variance_table.groupby(["Group", "Subject", "SamplingTime"])["Pitch"]
+    ).transform(lambda x: np.var(x))
+    pitch_variance_table.drop_duplicates(
+        subset=["Group", "Subject", "SamplingTime"], keep="first", inplace=True
+    )
     pitch_variance_table.to_csv(f"{output_folder}pitch_variance_table.csv", index=False)
 
     for group, subjects in peripheral_experiment.subjects.items():
@@ -243,8 +343,10 @@ def main():
 
     # Demographics table
     print("Generating demographics table...")
-    extra.compute_demographics("/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/demographics_data.csv",
-                               f"{output_folder}demographics.csv", )
+    extra.compute_demographics(
+        "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/demographics_data.csv",
+        f"{output_folder}demographics.csv",
+    )
     # Disable LaTeX auto-export
     # latex=f"{output_folder}demographics.tex")
 
@@ -252,28 +354,32 @@ def main():
     figure_list = [
         figures.CenteringMethods(
             motion_points=[
-                [[0, 50, 100, 150, 200],
-                 [190, 175, 170, 160, 162]],
-                [[0, 50, 100, 150, 200],
-                 [180, 175, 173, 168, 170]],
-                [[0, 50, 100, 150, 200],
-                 [175, 170, 160, 165, 165]],
-            ]),
+                [[0, 50, 100, 150, 200], [190, 175, 170, 160, 162]],
+                [[0, 50, 100, 150, 200], [180, 175, 173, 168, 170]],
+                [[0, 50, 100, 150, 200], [175, 170, 160, 165, 165]],
+            ]
+        ),
         figures.Results(
             experiments={
                 "raw": experiment,
                 "trimmed": trimmed_experiment,
-                "peripheral": peripheral_experiment
+                "peripheral": peripheral_experiment,
             },
-            plot_order=["Controls", "AD Patients"]),
+            plot_order=["Controls", "AD Patients"],
+        ),
         figures.Distributions(
             experiments={
                 "raw": experiment,
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment,
             },
-            plot_order=["Controls", "AD Patients"]),
+            plot_order=["Controls", "AD Patients"],
+        ),
         figures.Discussion(),
+        figures.Extra(
+            experiment=pitch_movement_experiment,
+            plot_order=["Controls", "AD Patients"],
+        ),
     ]
 
     # manually set the normal distribution limits
