@@ -510,26 +510,39 @@ class GroupTercileArrows(SubFigure):
                     tercile_data = subject_data[subject_data["Tercile"] == tercile]
 
                     base = np.mean(tercile_data["InitialPitch"])
-                    apex = np.mean(tercile_data["EndingPitch"])
+                    # Plot ending pitch
+                    # apex = np.mean(tercile_data["EndingPitch"])
+
+                    # Plot centering
+                    apex = base + np.mean(tercile_data["Centering"]) * (-1 if base > 0 else 1)
 
                     coordinates = np.array([[base, subject_idx + 1 - 0.25],
                                             [base, subject_idx + 1 + 0.25],
                                             [apex, subject_idx + 1]])
 
                     # draw a filled triangle with these coordinates
-                    axis.fill(coordinates[:, 0], coordinates[:, 1],
+                    axis.fill(coordinates[:, 1], coordinates[:, 0],
                               color=self.colormap[group],
                               alpha=self.opacity_map[tercile],
                               edgecolor="black")
 
             group_name = default_group_name_map()[group]
             axis.set_title(f"{group_name}")
-            axis.set_ylabel("Subject Number")
-            axis.set_ylim(0, len(subjects) + 1)
-            axis.set_yticks([float(i) for i in range(1, len(subjects) + 1, 2)])
-            axis.set_yticks([float(i) for i in range(2, len(subjects) + 1, 2)], minor=True)
-            axis.set_yticklabels([str(i) for i in range(1, len(subjects) + 1, 2)])
-            axis.set_xlabel("Pitch Deviation (Cents)")
+            axis.set_xlabel("Subject Number")
+            axis.set_xlim(0, len(subjects) + 1)
+            axis.set_xticks([float(i) for i in range(1, len(subjects) + 1, 2)])
+            axis.set_xticks([float(i) for i in range(2, len(subjects) + 1, 2)], minor=True)
+            axis.set_xticklabels([str(i) for i in range(1, len(subjects) + 1, 2)])
+            axis.set_ylabel("Pitch Deviation (Cents)")
+
+        y_axes = [limit(limit(ax.get_ylim()) for ax in self.axes) for limit in [min, max]]
+        for axis in self.axes:
+            axis.set_ylim(y_axes)
+
+        for axis_index in range(1, len(self.axes)):
+            # disable tick marks for all except the first axis
+            self.axes[axis_index].set_yticklabels([])
+            self.axes[axis_index].set_ylabel("")
 
 
 class CenteringMethods(Figure):
@@ -779,19 +792,37 @@ class GroupPitchNormal(SubFigure):
             axis.set_xlim(*limits)
             axis.tick_params(axis="x", direction="out")
 
+            binsize = 25
+
             for index, label in time_window_labels.items():
-                mean, std = (np.mean(group_data[index]), np.std(group_data[index]))
-                print(f"Group Normal Distribution ({group}) in {index}: {mean} +- {std}")
-                # density ensures that rescaling the figure's x-axis won't ruin our smooth-ness of our plot
-                axis.fill(np.linspace(limits[0], limits[1], num=round((limits[1] - limits[0]) /
-                                                                      defaults["normal-dist-density"])),
-                          norm.pdf(np.linspace(limits[0], limits[1],
-                                               num=round((limits[1] - limits[0])
-                                                         / defaults["normal-dist-density"])),
-                                   mean, std),
-                          color=self.colormap[group][index], alpha=0.75, label=label,
-                          edgecolor=defaults["hist-outline-color"],
-                          hatch=self.hatch_map[index])
+                bincount = int(np.ceil((max(group_data[index]) - min(group_data[index]))/binsize))
+                histogram, bins = np.histogram(group_data[index], bins=bincount)
+
+                # normalization
+                histogram = histogram/sum(histogram)
+                bin_centers = (bins[:-1] + bins[1:]) / 2
+
+                # increase resolution of bin centers
+                points = 1000
+                x_points = np.linspace(min(bin_centers), max(bin_centers), points)
+                histogram = np.interp(x_points, bin_centers, histogram)
+                bin_centers = np.interp(x_points, bin_centers, bin_centers)
+
+                parzen_kernel = lambda x, h: np.exp(-(x ** 2) / (2 * h ** 2)) / (np.sqrt(2 * np.pi) * h)
+
+                # parzen kernel
+                h = 0.05
+                kernel_values = parzen_kernel(np.linspace(-1, 1, points), h)
+
+                histogram = np.convolve(kernel_values/sum(kernel_values), histogram)
+
+                axis.fill(bin_centers, histogram[int(len(bin_centers)/2): int(len(bin_centers) * 3/2)],
+                        color=self.colormap[group][index],
+                        alpha=0.75,
+                        label=label,
+                        edgecolor=defaults["hist-outline-color"],
+                        hatch=self.hatch_map[index]
+                        )
 
             axis.legend(loc="upper left", frameon=False,
                         prop={'size': 15})
