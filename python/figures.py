@@ -336,7 +336,6 @@ class GroupCenteringTercileDots(SubFigure):
 class Results(Figure):
     def __init__(self, experiments: dict, render: bool = True, **kwargs):
         Figure.__init__(self, fig_size=(9.6, 9))
-
         self.name = "results_figure"
         self.sub_figures = []
         self.kwargs = kwargs
@@ -484,6 +483,21 @@ class GroupTercileArrows(SubFigure):
     def __init__(self, axes: list, experiment: Experiment, plot_order: list = None,
                  colormap: dict = None):
         SubFigure.__init__(self, colormap=colormap)
+
+        # override colormap
+        self.colormap = {
+            "AD Patients": {
+                "UPPER": "darkgoldenrod",
+                "CENTRAL": "white",
+                "LOWER": "darkgoldenrod"
+            },
+            "Controls": {
+                "UPPER": "teal",
+                "CENTRAL": "white",
+                "LOWER": "teal"
+            }
+        }
+
         self.axes = axes
 
         self.experiment = experiment
@@ -491,7 +505,7 @@ class GroupTercileArrows(SubFigure):
 
         self.opacity_map = {
             "UPPER": 0.75,
-            "CENTRAL": 0.5,
+            "CENTRAL": 0.75,
             "LOWER": 0.75
         }
 
@@ -522,7 +536,7 @@ class GroupTercileArrows(SubFigure):
 
                     # draw a filled triangle with these coordinates
                     axis.fill(coordinates[:, 1], coordinates[:, 0],
-                              color=self.colormap[group],
+                              color=self.colormap[group][tercile],
                               alpha=self.opacity_map[tercile],
                               edgecolor="black")
 
@@ -533,7 +547,7 @@ class GroupTercileArrows(SubFigure):
             axis.set_xticks([float(i) for i in range(1, len(subjects) + 1, 2)])
             axis.set_xticks([float(i) for i in range(2, len(subjects) + 1, 2)], minor=True)
             axis.set_xticklabels([str(i) for i in range(1, len(subjects) + 1, 2)])
-            axis.set_ylabel("Pitch Deviation (Cents)")
+            axis.set_ylabel("Pitch (Cents)")
 
         y_axes = [limit(limit(ax.get_ylim()) for ax in self.axes) for limit in [min, max]]
         for axis in self.axes:
@@ -578,8 +592,8 @@ class CenteringMethods(Figure):
             self.render()
 
         self.figure.text(0.01, 0.95, "A", fontsize="xx-large", fontweight="bold")
-        self.figure.text(1/2, 0.95, "B", fontsize="xx-large", fontweight="bold")
-        self.figure.text(3/4, 0.95, "C", fontsize="xx-large", fontweight="bold")
+        self.figure.text(1 / 2, 0.95, "B", fontsize="xx-large", fontweight="bold")
+        self.figure.text(3 / 4, 0.95, "C", fontsize="xx-large", fontweight="bold")
 
     def render(self):
         TARGET = 0
@@ -795,11 +809,11 @@ class GroupPitchNormal(SubFigure):
             binsize = 25
 
             for index, label in time_window_labels.items():
-                bincount = int(np.ceil((max(group_data[index]) - min(group_data[index]))/binsize))
+                bincount = int(np.ceil((max(group_data[index]) - min(group_data[index])) / binsize))
                 histogram, bins = np.histogram(group_data[index], bins=bincount)
 
                 # normalization
-                histogram = histogram/sum(histogram)
+                histogram = histogram / sum(histogram)
                 bin_centers = (bins[:-1] + bins[1:]) / 2
 
                 # increase resolution of bin centers
@@ -814,18 +828,20 @@ class GroupPitchNormal(SubFigure):
                 h = 0.05
                 kernel_values = parzen_kernel(np.linspace(-1, 1, points), h)
 
-                histogram = np.convolve(kernel_values/sum(kernel_values), histogram)
+                histogram = np.convolve(kernel_values / sum(kernel_values), histogram)
 
-                axis.fill(bin_centers, histogram[int(len(bin_centers)/2): int(len(bin_centers) * 3/2)],
-                        color=self.colormap[group][index],
-                        alpha=0.75,
-                        label=label,
-                        edgecolor=defaults["hist-outline-color"],
-                        hatch=self.hatch_map[index]
-                        )
-
+                axis.fill(bin_centers, histogram[int(len(bin_centers) / 2): int(len(bin_centers) * 3 / 2)],
+                          color=self.colormap[group][index],
+                          alpha=0.75,
+                          label=label,
+                          edgecolor=defaults["hist-outline-color"],
+                          hatch=self.hatch_map[index]
+                          )
             axis.legend(loc="upper left", frameon=False,
                         prop={'size': 15})
+
+            limits = axis.get_ylim()
+            axis.set_ylim(bottom=limits[0], top=limits[1] * 1.1)
 
         # only label the bottom-most value
         self.axes[-1].set_xlabel("Pitch Deviation (Cents)")
@@ -933,6 +949,7 @@ class RecruitmentDiscussion(SubFigure):
         SchematicAxes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.30),
                              ncol=2, frameon=False)
 
+
 class Extra(Figure):
     def __init__(self, experiment: Experiment, plot_order: list = [], render: bool = True, **kwargs):
         Figure.__init__(self)
@@ -949,6 +966,7 @@ class Extra(Figure):
 
     def render(self):
         PitchMovement(self.experiment, self.axes[0], self.plot_order).render()
+
 
 class PitchMovement(SubFigure):
     def __init__(self, experiment: Experiment, axes: plt.Axes, plot_order: list = [],
@@ -1028,5 +1046,7 @@ class PitchMovement(SubFigure):
                          loc="upper left",
                          frameon=False,
                          prop={'size': 15})
+
+
 # global styles
 __global_styles()
