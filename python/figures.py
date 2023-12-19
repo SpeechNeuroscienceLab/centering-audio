@@ -4,6 +4,7 @@ from pprint import pprint
 import matplotlib.colors as colors
 import matplotlib.patches as patches
 import matplotlib.patches as mpatches
+from matplotlib.legend_handler import HandlerTuple
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 import numpy as np
@@ -84,7 +85,8 @@ class Figure:
     def __init__(self, colormap: dict = None, fig_size=(6.4, 4.8), subplots=None, shared_axis=("none", "none"),
                  **kwargs):
         if colormap is None:
-            self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+            self.colormap = {"AD Patients": "indianred",
+                             "Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -123,7 +125,8 @@ class Figure:
 class SubFigure:
     def __init__(self, colormap: dict = None):
         if colormap is None:
-            self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+            self.colormap = {"AD Patients": "indianred",
+                             "Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -308,7 +311,8 @@ class GroupCenteringTercileDots(SubFigure):
         self.axes.scatter(x=self.bar_x,
                           y=[bar["height"] for bar in dots],
                           color=[bar["color"] for bar in dots],
-                          alpha=0.9,
+                          edgecolors=defaults["error-color"],
+                          alpha=1.0,
                           marker='h',
                           s=300,
                           zorder=2)
@@ -317,7 +321,7 @@ class GroupCenteringTercileDots(SubFigure):
         self.axes.set_xticklabels([self.label_map[bar["label"]] for bar in dots], rotation=0, ha="center")
         self.axes.tick_params(axis='x', length=0)
 
-        self.axes.set_ylabel("Magnitude of Initial Pitch Deviation (Cents)")
+        self.axes.set_ylabel("Initial Pitch Deviation Magnitude (Cents)")
 
         self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
                                   for group in self.plot_order],
@@ -380,16 +384,17 @@ class Results(Figure):
         self.figure.tight_layout()
         self.figure.subplots_adjust(hspace=0.4, wspace=0.25)
 
-        self.figure.text(0.01, 0.97, "A", fontsize="xx-large", fontweight="bold")
-        self.figure.text(0.50, 0.97, "B", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.01, 0.95, "A", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.51, 0.95, "B", fontsize="xx-large", fontweight="bold")
         self.figure.text(0.01, 0.47, "C", fontsize="xx-large", fontweight="bold")
-        self.figure.text(0.50, 0.47, "D", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.51, 0.47, "D", fontsize="xx-large", fontweight="bold")
 
 
 class SubFigure:
     def __init__(self, colormap: dict = None, **kwargs):
         if colormap is None:
-            self.colormap = {"AD Patients": "darkgoldenrod", "Controls": "teal"}
+            self.colormap = {"AD Patients": "indianred",
+                             "Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -398,6 +403,19 @@ class GroupTercileCenteringBars(SubFigure):
     def __init__(self, experiment: Experiment, axes: plt.Axes, plot_order: list = None,
                  colormap: dict = None):
         SubFigure.__init__(self, colormap=colormap)
+
+        # override colormap
+        self.colormap = {
+            "Controls": {
+                "LOWER": "lightcoral",
+                "UPPER": "brown"
+            },
+            "AD Patients": {
+                "LOWER": "mediumturquoise",
+                "UPPER": "darkcyan"
+            }
+        }
+
         self.axes = axes
 
         self.bar_x = None
@@ -425,7 +443,7 @@ class GroupTercileCenteringBars(SubFigure):
                     "label": tercile,
                     "height": np.nanmean(tercile_data["Centering"]),
                     "error": StatisticsHelpers.standard_error(tercile_data["Centering"]),
-                    "color": self.colormap[group],
+                    "color": self.colormap[group][tercile],
                 })
 
         print("Group Tercile Centering Bar Data:")
@@ -443,7 +461,7 @@ class GroupTercileCenteringBars(SubFigure):
                       height=[bar["height"] for bar in bars],
                       color=[bar["color"] for bar in bars],
                       alpha=0.9,
-                      hatch=["/", " ", "/", ""]
+                      # hatch=["/", " ", "/", ""]
                       )
 
         self.axes.set_xticks(ticks=self.bar_x)
@@ -461,11 +479,17 @@ class GroupTercileCenteringBars(SubFigure):
                            capsize=defaults["error-cap-size"],
                            ls=defaults["error-line-style"])
 
-        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
-                                  for group in self.plot_order],
-                         loc="upper left",
+        legend_dict = dict(zip(self.plot_order, [list(self.colormap[group].values()) for group in self.colormap]))
+        patches = []
+        for cat, col in legend_dict.items():
+            patches.append([mpatches.Patch(facecolor=c, label=cat) for c in col])
+        self.axes.legend(handles=patches,
+                         labels=self.plot_order,
                          frameon=False,
-                         prop={'size': 15})
+                         loc="upper left",
+                         handler_map={list: HandlerTuple(None)},
+                         prop={'size': 15}
+        )
 
     def annotate_significance(self, x, label):
         Annotations.bar_significance(axes=self.axes,
@@ -486,15 +510,15 @@ class GroupTercileArrows(SubFigure):
 
         # override colormap
         self.colormap = {
-            "AD Patients": {
-                "UPPER": "darkgoldenrod",
-                "CENTRAL": "white",
-                "LOWER": "darkgoldenrod"
-            },
             "Controls": {
-                "UPPER": "teal",
-                "CENTRAL": "white",
-                "LOWER": "teal"
+                "LOWER": "lightcoral",
+                "CENTRAL": "indianred",
+                "UPPER": "brown"
+            },
+            "AD Patients": {
+                "LOWER": "mediumturquoise",
+                "CENTRAL": "cadetblue",
+                "UPPER": "darkcyan"
             }
         }
 
@@ -505,7 +529,7 @@ class GroupTercileArrows(SubFigure):
 
         self.opacity_map = {
             "UPPER": 0.75,
-            "CENTRAL": 0.75,
+            "CENTRAL": 0.25,
             "LOWER": 0.75
         }
 
@@ -591,7 +615,7 @@ class CenteringMethods(Figure):
         if render:
             self.render()
 
-        self.figure.text(0.01, 0.95, "A", fontsize="xx-large", fontweight="bold")
+        self.figure.text(0.01, 0.93, "A", fontsize="xx-large", fontweight="bold")
         self.figure.text(1 / 2, 0.95, "B", fontsize="xx-large", fontweight="bold")
         self.figure.text(3 / 4, 0.95, "C", fontsize="xx-large", fontweight="bold")
 
@@ -767,12 +791,12 @@ class GroupPitchNormal(SubFigure):
         # override default colormap
         self.colormap = {
             "AD Patients": {
-                "InitialPitch": ColorUtils.alter_brightness("goldenrod", -0.5),
-                "EndingPitch": "goldenrod"
+                "InitialPitch": ColorUtils.alter_brightness("cadetblue", -0.5),
+                "EndingPitch": "cadetblue"
             },
             "Controls": {
-                "InitialPitch": ColorUtils.alter_brightness("teal", -0.7),
-                "EndingPitch": "teal"
+                "InitialPitch": ColorUtils.alter_brightness("indianred", -0.7),
+                "EndingPitch": "indianred"
             }
         }
 
@@ -892,14 +916,14 @@ class SensitivityDiscussion(SubFigure):
 
         domains = [np.linspace(-200, 0, 400), np.linspace(0, 200, 400)]
 
-        SchematicAxes.plot(domains[0], sigmoid(-domains[0], scale=0.05, offset=100), color="teal",
+        SchematicAxes.plot(domains[0], sigmoid(-domains[0], scale=0.05, offset=100), color="cadetblue",
                            linewidth=3)
-        SchematicAxes.plot(domains[1], sigmoid(domains[1], scale=0.05, offset=100), color="teal",
+        SchematicAxes.plot(domains[1], sigmoid(domains[1], scale=0.05, offset=100), color="cadetblue",
                            linewidth=3,
                            label="Controls")
-        SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.05, offset=100), color="darkgoldenrod",
+        SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.05, offset=100), color="indianred",
                            linewidth=3)
-        SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.05, offset=100), color="darkgoldenrod",
+        SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.05, offset=100), color="indianred",
                            linewidth=3,
                            label="AD")
 
@@ -932,10 +956,10 @@ class RecruitmentDiscussion(SubFigure):
 
         domain = np.linspace(-200, 200, 400)
 
-        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=0), color="teal",
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=0), color="cadetblue",
                            linewidth=3,
                            label="Controls")
-        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-60), color="darkgoldenrod",
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-60), color="indianred",
                            linewidth=3,
                            label="AD")
 
@@ -984,8 +1008,8 @@ class PitchMovement(SubFigure):
         }
 
         self.colormap = {
-            "AD Patients": "goldenrod",
-            "Controls": "teal"
+            "AD Patients": "indianred",
+            "Controls": "cadetblue"
         }
 
         print(f"Plot order {plot_order}")
