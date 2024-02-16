@@ -223,10 +223,10 @@ class CenteringAnalysis:
 
 # input args
 INPUT_PATH = (
-    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/analyze_audio.csv"
+    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/SD/analyze_audio.csv"
 )
 OUTPUT_PATH = (
-    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/publication/"
+    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/SD/publication/"
 )
 
 COLUMN_MAP = {
@@ -261,7 +261,7 @@ def main():
 
     # manually exclude subjects
     CenteringAnalysis.Trim.by_subject_name(
-        trimmed_experiment, exclude=[("AD Patients", "20160128_1")]
+        trimmed_experiment, exclude=[("AD Patients", "20160128_1"), ("SD Patients", "20170516"), ("SD Patients", "20170307")]
     )
 
     print(
@@ -275,6 +275,8 @@ def main():
     full_subject_ids = trimmed_experiment.subjects.copy()
     CenteringAnalysis.rename_subjects(trimmed_experiment)
     trimmed_experiment.update_subjects()
+    CenteringAnalysis.rename_subjects(experiment)
+    experiment.update_subjects()
 
     # show rename table for subjects
     print("*Subject Rename Table*")
@@ -286,6 +288,17 @@ def main():
     # rename columns
     experiment.df.rename(columns=COLUMN_MAP, inplace=True)
     trimmed_experiment.df.rename(columns=COLUMN_MAP, inplace=True)
+
+    # Delete me: temporary deleting
+    # i_not_ok = [
+    #             0, 1, 2,
+    #             #3, 4, 5,
+    #             6, 7, 8,
+    #             9, 10
+    # ]
+    # for i in i_not_ok:
+    #     trimmed_experiment.df = trimmed_experiment.df[trimmed_experiment.df['Subject'] != f'SDControls{i}']
+    #     experiment.df = experiment.df[experiment.df['Subject'] != f'SDControls{i}']
 
     # separate into only peripheral trials
     peripheral_experiment = CenteringAnalysis.drop_central_trials(
@@ -339,7 +352,7 @@ def main():
     pitch_variance_table.to_csv(f"{output_folder}pitch_variance_table.csv", index=False)
 
     for group, subjects in peripheral_experiment.subjects.items():
-        print(f"Including {len(subjects)} subjects in group {group} for this analysis.")
+        print(f"Including {len(subjects)} subjects in group {group} for this analysis ({trimmed_experiment.df[trimmed_experiment.df['Group'] == group].shape[0]} individual trials)")
 
     # Demographics table
     print("Generating demographics table...")
@@ -365,7 +378,9 @@ def main():
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment,
             },
-            plot_order=["Controls", "AD Patients"],
+            plot_order=["SD Controls", "SD Patients"],
+            # Pitch movement, error bars
+            plot_flags=((False, True), (False, True), (), ())
         ),
         figures.Distributions(
             experiments={
@@ -373,28 +388,31 @@ def main():
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment,
             },
-            plot_order=["Controls", "AD Patients"],
+            plot_order=["SD Controls", "SD Patients"],
         ),
         figures.Discussion(),
         figures.Extra(
             experiment=pitch_movement_experiment,
-            plot_order=["Controls", "AD Patients"],
+            plot_order=["SD Controls", "SD Patients"],
         ),
     ]
 
     # manually set the normal distribution limits
-    figure_list[1].sub_figures[1].axes[-1].set_xlim([-300, 300])
+    figure_list[1].sub_figures[1].axes[-1].set_xlim([-400, 400])
 
     # manually re-window the scatter with bars
-    figure_list[2].sub_figures[0].axes.set_ylim([68, 82])
+    # figure_list[2].sub_figures[0].axes.set_ylim([68, 82])
 
     # for axis in figure_list[1].sub_figures[1].axes:
     #    axis.set_ylim([0, 0.006])
 
     # add significance annotation
-    figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="*")
+    # figure_list[1].sub_figures[2].annotate_significance(x=[2, 3], label="*")
 
-    figure_list[2].sub_figures[0].annotate_significance(x=[0, 1], label="*")
+    # figure_list[2].sub_figures[0].annotate_significance(x=[0, 1], label="*")
+
+    # resizing the bars for fitting the legend
+    figure_list[1].sub_figures[2].axes.set_ylim([0, 30])
 
     print(f"Saving figures to disk...")
     for i, figure in enumerate(figure_list):

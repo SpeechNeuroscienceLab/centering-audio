@@ -85,8 +85,8 @@ class Figure:
     def __init__(self, colormap: dict = None, fig_size=(6.4, 4.8), subplots=None, shared_axis=("none", "none"),
                  **kwargs):
         if colormap is None:
-            self.colormap = {"AD Patients": "indianred",
-                             "Controls": "cadetblue"}
+            self.colormap = {"SD Patients": "indianred",
+                             "SD Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -125,8 +125,8 @@ class Figure:
 class SubFigure:
     def __init__(self, colormap: dict = None):
         if colormap is None:
-            self.colormap = {"AD Patients": "indianred",
-                             "Controls": "cadetblue"}
+            self.colormap = {"SD Patients": "indianred",
+                             "SD Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -338,7 +338,7 @@ class GroupCenteringTercileDots(SubFigure):
 
 
 class Results(Figure):
-    def __init__(self, experiments: dict, render: bool = True, **kwargs):
+    def __init__(self, experiments: dict, render: bool = True, plot_flags=((False, False), (False, False), (), ()), **kwargs):
         Figure.__init__(self, fig_size=(9.6, 9))
         self.name = "results_figure"
         self.sub_figures = []
@@ -346,13 +346,16 @@ class Results(Figure):
 
         self.experiments = experiments
 
+        self.plot_flags = plot_flags
+
         if render:
             self.render()
 
     def render(self):
         GroupTercileArrowsAxes = [self.figure.add_subplot(2, 2, 1), self.figure.add_subplot(2, 2, 2)]
         self.sub_figures.append(GroupTercileArrows(experiment=self.experiments["trimmed"],
-                                                   axes=GroupTercileArrowsAxes, **self.kwargs))
+                                                   axes=GroupTercileArrowsAxes, plot_flags=self.plot_flags[0],
+                                                   **self.kwargs))
         GroupPitchNormalAxes = [self.figure.add_subplot(4, 2, 5),
                                 self.figure.add_subplot(4, 2, 7)]
 
@@ -360,6 +363,7 @@ class Results(Figure):
         GroupPitchNormalAxes[0].get_shared_x_axes().join(GroupPitchNormalAxes[0], GroupPitchNormalAxes[1])
 
         self.sub_figures.append(GroupPitchNormal(experiment=self.experiments["raw"],
+        # self.sub_figures.append(GroupPitchNormal(experiment=self.experiments["peripheral"],
                                                  axes=GroupPitchNormalAxes, **self.kwargs))
 
         GroupTercileCenteringBarsAxes = self.figure.add_subplot(4, 2, (6, 8))
@@ -393,8 +397,8 @@ class Results(Figure):
 class SubFigure:
     def __init__(self, colormap: dict = None, **kwargs):
         if colormap is None:
-            self.colormap = {"AD Patients": "indianred",
-                             "Controls": "cadetblue"}
+            self.colormap = {"SD Patients": "indianred",
+                             "SD Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -406,11 +410,11 @@ class GroupTercileCenteringBars(SubFigure):
 
         # override colormap
         self.colormap = {
-            "Controls": {
+            "SD Controls": {
                 "LOWER": "lightcoral",
                 "UPPER": "brown"
             },
-            "AD Patients": {
+            "SD Patients": {
                 "LOWER": "mediumturquoise",
                 "UPPER": "darkcyan"
             }
@@ -500,22 +504,23 @@ class GroupTercileCenteringBars(SubFigure):
 
 
 def default_group_name_map():
-    return {"AD Patients": "Patients with AD", "Controls": "Controls"}
+    return {"SD Patients": "Patients with SD", "SD Controls": "Controls"}
 
 
 class GroupTercileArrows(SubFigure):
     def __init__(self, axes: list, experiment: Experiment, plot_order: list = None,
-                 colormap: dict = None):
+                 colormap: dict = None,
+                 plot_flags=(False, False)):
         SubFigure.__init__(self, colormap=colormap)
 
         # override colormap
         self.colormap = {
-            "Controls": {
+            "SD Controls": {
                 "LOWER": "lightcoral",
                 "CENTRAL": "indianred",
                 "UPPER": "brown"
             },
-            "AD Patients": {
+            "SD Patients": {
                 "LOWER": "mediumturquoise",
                 "CENTRAL": "cadetblue",
                 "UPPER": "darkcyan"
@@ -527,10 +532,23 @@ class GroupTercileArrows(SubFigure):
         self.experiment = experiment
         self.plot_order = [group for group in experiment.subjects] if plot_order is None else plot_order
 
+        self.plot_flags = plot_flags
+
         self.opacity_map = {
             "UPPER": 0.75,
             "CENTRAL": 0.25,
             "LOWER": 0.75
+        }
+
+        self.error_colormap = {
+            "SD Patients": {
+                "InitialPitch": ColorUtils.alter_brightness("cadetblue", -0.7),
+                "EndingPitch": "cadetblue"
+            },
+            "SD Controls": {
+                "InitialPitch": ColorUtils.alter_brightness("lightsalmon", -0.7),
+                "EndingPitch": "lightsalmon"
+            }
         }
 
         self.render()
@@ -547,12 +565,19 @@ class GroupTercileArrows(SubFigure):
                 for tercile in subject_data["Tercile"].drop_duplicates():
                     tercile_data = subject_data[subject_data["Tercile"] == tercile]
 
-                    base = np.mean(tercile_data["InitialPitch"])
-                    # Plot ending pitch
-                    # apex = np.mean(tercile_data["EndingPitch"])
+                    stderr = lambda data: np.std(data, ddof=1)/np.sqrt(np.size(data))
 
+                    base = np.mean(tercile_data["InitialPitch"])
+                    base_error = stderr(tercile_data["InitialPitch"])
+
+                    # Plot pitch movement
+                    if self.plot_flags[0]:
+                        apex = np.mean(tercile_data["EndingPitch"])
+                        apex_error = stderr(tercile_data["EndingPitch"])
                     # Plot centering
-                    apex = base + np.mean(tercile_data["Centering"]) * (-1 if base > 0 else 1)
+                    else:
+                        apex = base + np.mean(tercile_data["Centering"]) * (-1 if base > 0 else 1)
+                        apex_error = stderr(base + tercile_data["EndingPitch"] * (-1 if base > 0 else 1))
 
                     coordinates = np.array([[base, subject_idx + 1 - 0.25],
                                             [base, subject_idx + 1 + 0.25],
@@ -564,8 +589,13 @@ class GroupTercileArrows(SubFigure):
                               alpha=self.opacity_map[tercile],
                               edgecolor="black")
 
+                    if self.plot_flags[1] and tercile in ["UPPER", "LOWER"]:
+                        # plot error bar for base and apex
+                        axis.plot([subject_idx + 1]*2, [base - base_error, base + base_error], color=self.error_colormap[group]["InitialPitch"], alpha=0.7, linewidth=1.5)
+                        axis.plot([subject_idx + 1]*2, [apex - apex_error, apex + apex_error], color=self.error_colormap[group]["EndingPitch"], alpha=0.7, linewidth=1.5)
+
             group_name = default_group_name_map()[group]
-            axis.set_title(f"{group_name}")
+            axis.set_title(f"{group_name} {' (pitch movement)' if self.plot_flags[0] else ''}")
             axis.set_xlabel("Subject Number")
             axis.set_xlim(0, len(subjects) + 1)
             axis.set_xticks([float(i) for i in range(1, len(subjects) + 1, 2)])
@@ -595,9 +625,9 @@ class CenteringMethods(Figure):
 
     def __init__(self, motion_points: list, render: bool = True):
         Figure.__init__(self, fig_size=(14.08, 5.28))
-        self.axes = [self.figure.add_subplot(1, 8, (1, 4)),
-                     self.figure.add_subplot(1, 8, (5, 6)),
-                     self.figure.add_subplot(1, 8, (7, 8))]
+        self.axes = [self.figure.add_subplot(1, 10, (1, 5)),
+                     self.figure.add_subplot(1, 10, (6, 7)),
+                     self.figure.add_subplot(1, 10, (8, 10))]
 
         # reset the axes manually
         for axis in self.axes:
@@ -616,13 +646,13 @@ class CenteringMethods(Figure):
             self.render()
 
         self.figure.text(0.01, 0.93, "A", fontsize="xx-large", fontweight="bold")
-        self.figure.text(1 / 2, 0.95, "B", fontsize="xx-large", fontweight="bold")
-        self.figure.text(3 / 4, 0.95, "C", fontsize="xx-large", fontweight="bold")
+        self.figure.text(5/10, 0.93, "B", fontsize="xx-large", fontweight="bold")
+        self.figure.text(7/10, 0.93, "C", fontsize="xx-large", fontweight="bold")
 
     def render(self):
         TARGET = 0
         self.figure.tight_layout()
-        self.figure.subplots_adjust(left=0.06, wspace=1)
+        self.figure.subplots_adjust(left=0.06, wspace=2)
 
         axis = self.axes[0]
         axis.set_ylabel("Pitch (hz)")
@@ -673,7 +703,7 @@ class CenteringMethods(Figure):
 
         # cents conversion
         axis = self.axes[1]
-        axis.set_xlim([0, 175])
+        axis.set_xlim([0, 125])
         axis.set_ylabel("Pitch Deviation (cents)")
         # axis.set_xlabel("Window")
         axis.set_xticks([25, 100])
@@ -704,35 +734,8 @@ class CenteringMethods(Figure):
                       color="green",
                       linewidth=2)
 
-        # plot the triangle
-        TRIANGLE_WIDTH = 30
-        TRIANGLE_OFFSET = 150
-        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, target_cents[0]],
-                                [TRIANGLE_OFFSET, target_cents[1]],
-                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, target_cents[0]]])
-        axis.fill(coordinates[:, 0], coordinates[:, 1],
-                  color="gray",
-                  alpha=.7,
-                  edgecolor="black",
-                  zorder=150)
-
-        axis.text(TRIANGLE_OFFSET,
-                  (max(target_cents) - len("pitch movement") - 3),
-                  "pitch movement",
-                  horizontalalignment="center",
-                  verticalalignment="center",
-                  size=defaults["annotation-text-size"],
-                  rotation='vertical',
-                  color="black",
-                  zorder=200)
-
-        axis.plot([50, TRIANGLE_OFFSET - (TRIANGLE_WIDTH / 2)], 2 * [target_cents[0]],
-                  color="black", linestyle="dotted")
-        axis.plot([125, TRIANGLE_OFFSET], 2 * [target_cents[1]],
-                  color="black", linestyle="dotted")
-
         axis = self.axes[2]
-        axis.set_xlim([0, 150])
+        axis.set_xlim([0, 175])
         axis.set_ylabel("Magnitude of Pitch Deviation (cents)")
         # axis.set_xlabel("Window")
 
@@ -765,20 +768,32 @@ class CenteringMethods(Figure):
         arrowhead_size = 1.5
 
         # add centering text label
-        axis.arrow(LABEL_OFFSET, target_cents[0], dx=0, dy=target_cents[1] - target_cents[0] + arrowhead_size,
-                   head_width=arrowhead_size * 2, head_length=arrowhead_size,
-                   color="grey")
 
-        axis.text(LABEL_OFFSET - defaults["annotation-vertical-padding"],
-                  np.abs(target_cents[1] + target_cents[0]) / 2, "centering",
-                  horizontalalignment="right",
+        # plot the triangle
+        TRIANGLE_WIDTH = 30
+        TRIANGLE_OFFSET = 150
+        coordinates = np.array([[TRIANGLE_OFFSET - TRIANGLE_WIDTH / 2, target_cents[0]],
+                                [TRIANGLE_OFFSET, target_cents[1]],
+                                [TRIANGLE_OFFSET + TRIANGLE_WIDTH / 2, target_cents[0]]])
+        axis.fill(coordinates[:, 0], coordinates[:, 1],
+                  color="gray",
+                  alpha=.7,
+                  edgecolor="black",
+                  zorder=150)
+
+        axis.text(TRIANGLE_OFFSET,
+                  (max(target_cents) - len("centering")/2 - 3),
+                  "centering",
+                  horizontalalignment="center",
                   verticalalignment="center",
                   size=defaults["annotation-text-size"],
-                  rotation='vertical')
+                  rotation='vertical',
+                  color="black",
+                  zorder=200)
 
-        axis.plot([50, LABEL_OFFSET], 2 * [target_cents[0]],
+        axis.plot([50, TRIANGLE_OFFSET - (TRIANGLE_WIDTH / 2)], 2 * [target_cents[0]],
                   color="black", linestyle="dotted")
-        axis.plot([125, LABEL_OFFSET], 2 * [target_cents[1]],
+        axis.plot([125, TRIANGLE_OFFSET], 2 * [target_cents[1]],
                   color="black", linestyle="dotted")
 
 
@@ -790,13 +805,13 @@ class GroupPitchNormal(SubFigure):
 
         # override default colormap
         self.colormap = {
-            "AD Patients": {
-                "InitialPitch": ColorUtils.alter_brightness("cadetblue", -0.5),
-                "EndingPitch": "cadetblue"
+            "SD Patients": {
+                "InitialPitch": ColorUtils.alter_brightness("lightblue", -0.5),
+                "EndingPitch": "lightblue"
             },
-            "Controls": {
-                "InitialPitch": ColorUtils.alter_brightness("indianred", -0.7),
-                "EndingPitch": "indianred"
+            "SD Controls": {
+                "InitialPitch": ColorUtils.alter_brightness("lightsalmon", -0.7),
+                "EndingPitch": "lightsalmon"
             }
         }
 
@@ -925,7 +940,7 @@ class SensitivityDiscussion(SubFigure):
                            linewidth=3)
         SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.05, offset=100), color="indianred",
                            linewidth=3,
-                           label="AD")
+                           label="SD")
 
         SchematicAxes.set_ylabel("Feedback Sensitivity")
 
@@ -961,7 +976,7 @@ class RecruitmentDiscussion(SubFigure):
                            label="Controls")
         SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-60), color="indianred",
                            linewidth=3,
-                           label="AD")
+                           label="SD")
 
         SchematicAxes.set_ylabel("MN Recruitment")
 
@@ -1008,8 +1023,14 @@ class PitchMovement(SubFigure):
         }
 
         self.colormap = {
-            "AD Patients": "indianred",
-            "Controls": "cadetblue"
+            "SD Controls": {
+                "LOWER": "lightcoral",
+                "UPPER": "brown"
+            },
+            "SD Patients": {
+                "LOWER": "mediumturquoise",
+                "UPPER": "darkcyan"
+            }
         }
 
         print(f"Plot order {plot_order}")
@@ -1029,7 +1050,7 @@ class PitchMovement(SubFigure):
                     "label": tercile,
                     "height": np.nanmean(tercile_data["NormPitchMovement"]),
                     "error": StatisticsHelpers.standard_error(tercile_data["NormPitchMovement"]),
-                    "color": self.colormap[group],
+                    "color": self.colormap[group][tercile],
                 })
 
         print("Group Tercile Pitch Movement Bar Data:")
@@ -1047,7 +1068,6 @@ class PitchMovement(SubFigure):
                       height=[bar["height"] for bar in bars],
                       color=[bar["color"] for bar in bars],
                       alpha=0.9,
-                      hatch=["/", " ", "/", ""]
                       )
 
         self.axes.set_xticks(ticks=self.bar_x)
@@ -1065,11 +1085,17 @@ class PitchMovement(SubFigure):
                            capsize=defaults["error-cap-size"],
                            ls=defaults["error-line-style"])
 
-        self.axes.legend(handles=[patches.Patch(color=self.colormap[group], label=default_group_name_map()[group])
-                                  for group in self.plot_order],
-                         loc="upper left",
+        legend_dict = dict(zip(self.plot_order, [list(self.colormap[group].values()) for group in self.colormap]))
+        patches = []
+        for cat, col in legend_dict.items():
+            patches.append([mpatches.Patch(facecolor=c, label=cat) for c in col])
+        self.axes.legend(handles=patches,
+                         labels=self.plot_order,
                          frameon=False,
-                         prop={'size': 15})
+                         loc="upper left",
+                         handler_map={list: HandlerTuple(None)},
+                         prop={'size': 15}
+                         )
 
 
 # global styles
