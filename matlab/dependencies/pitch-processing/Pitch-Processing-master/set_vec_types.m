@@ -1,5 +1,0 @@
-PEAKLIST = 0;
-SHORT_VEC = 1;
-INT_VEC   = 2;
-FLOAT_VEC = 3;
-
