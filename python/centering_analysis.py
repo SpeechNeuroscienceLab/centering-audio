@@ -1,4 +1,8 @@
 # import statements
+import time
+
+start_time = time.time()
+
 from pathlib import Path
 
 import numpy as np
@@ -223,10 +227,10 @@ class CenteringAnalysis:
 
 # input args
 INPUT_PATH = (
-    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/SD/analyze_audio.csv"
+    "/Users/anantajit/Documents/UCSF/tables-and-figures/AD/analyze_audio.csv"
 )
 OUTPUT_PATH = (
-    "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/SD/publication/"
+    "/Users/anantajit/Documents/UCSF/tables-and-figures/AD/publication/"
 )
 
 COLUMN_MAP = {
@@ -255,14 +259,19 @@ def main():
     # for auto-trimming
     trimmed_experiment = experiment.copy()
     CenteringAnalysis.Trim.by_subject_trial_count(trimmed_experiment)
+    print(trimmed_experiment.df.shape[0])
     CenteringAnalysis.Trim.by_group_initial_pitch_distribution(
         trimmed_experiment, std_threshold=std_threshold
     )
+    print(trimmed_experiment.df.shape[0])
+
 
     # manually exclude subjects
     CenteringAnalysis.Trim.by_subject_name(
         trimmed_experiment, exclude=[("AD Patients", "20160128_1"), ("SD Patients", "20170516"), ("SD Patients", "20170307")]
     )
+    print(trimmed_experiment.df.shape[0])
+
 
     print(
         f"Trials trimmed from analysis: {experiment.df.shape[0] - trimmed_experiment.df.shape[0]}"
@@ -289,21 +298,12 @@ def main():
     experiment.df.rename(columns=COLUMN_MAP, inplace=True)
     trimmed_experiment.df.rename(columns=COLUMN_MAP, inplace=True)
 
-    # Delete me: temporary deleting
-    # i_not_ok = [
-    #             0, 1, 2,
-    #             #3, 4, 5,
-    #             6, 7, 8,
-    #             9, 10
-    # ]
-    # for i in i_not_ok:
-    #     trimmed_experiment.df = trimmed_experiment.df[trimmed_experiment.df['Subject'] != f'SDControls{i}']
-    #     experiment.df = experiment.df[experiment.df['Subject'] != f'SDControls{i}']
-
     # separate into only peripheral trials
     peripheral_experiment = CenteringAnalysis.drop_central_trials(
         trimmed_experiment, inplace=False, indexing="Tercile"
     )
+
+    print(peripheral_experiment.df.shape[0])
     # recompute trial indices for peripheral trials
     CenteringAnalysis.ComputeColumn.trial_index(
         peripheral_experiment, inplace=True, indexing=("Group", "Subject", "Trial")
@@ -335,6 +335,8 @@ def main():
     pitch_movement_experiment.subjects = peripheral_experiment.subjects.copy()
     pitch_movement_table.to_csv(f"{output_folder}pitch-movement-table.csv")
 
+    print(f"Analysis Completed in {round(time.time() - start_time, 2)} seconds")
+
     # write the pitch variance table
     pitch_variance_table = pd.melt(
         peripheral_experiment.df,
@@ -357,7 +359,7 @@ def main():
     # Demographics table
     print("Generating demographics table...")
     extra.compute_demographics(
-        "/Users/anantajit/Documents/Research/UCSF/tables-and-figures/AD/demographics_data.csv",
+        "/Users/anantajit/Documents/UCSF/tables-and-figures/AD/demographics_data.csv",
         f"{output_folder}demographics.csv",
     )
     # Disable LaTeX auto-export
@@ -378,9 +380,9 @@ def main():
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment,
             },
-            plot_order=["SD Controls", "SD Patients"],
+            plot_order=["Controls", "AD Patients"],
             # Pitch movement, error bars
-            plot_flags=((False, True), (False, True), (), ())
+            plot_flags=((True, True), (False, True), (), ())
         ),
         figures.Distributions(
             experiments={
@@ -388,12 +390,12 @@ def main():
                 "trimmed": trimmed_experiment,
                 "peripheral": peripheral_experiment,
             },
-            plot_order=["SD Controls", "SD Patients"],
+            plot_order=["Controls", "AD Patients"],
         ),
         figures.Discussion(),
         figures.Extra(
             experiment=pitch_movement_experiment,
-            plot_order=["SD Controls", "SD Patients"],
+            plot_order=["Controls", "AD Patients"],
         ),
     ]
 

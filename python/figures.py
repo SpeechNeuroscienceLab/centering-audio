@@ -85,8 +85,8 @@ class Figure:
     def __init__(self, colormap: dict = None, fig_size=(6.4, 4.8), subplots=None, shared_axis=("none", "none"),
                  **kwargs):
         if colormap is None:
-            self.colormap = {"SD Patients": "indianred",
-                             "SD Controls": "cadetblue"}
+            self.colormap = {"AD Patients": "indianred",
+                             "Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -125,8 +125,8 @@ class Figure:
 class SubFigure:
     def __init__(self, colormap: dict = None):
         if colormap is None:
-            self.colormap = {"SD Patients": "indianred",
-                             "SD Controls": "cadetblue"}
+            self.colormap = {"AD Patients": "indianred",
+                             "Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -397,8 +397,8 @@ class Results(Figure):
 class SubFigure:
     def __init__(self, colormap: dict = None, **kwargs):
         if colormap is None:
-            self.colormap = {"SD Patients": "indianred",
-                             "SD Controls": "cadetblue"}
+            self.colormap = {"AD Patients": "indianred",
+                             "Controls": "cadetblue"}
         else:
             self.colormap = colormap
 
@@ -410,11 +410,11 @@ class GroupTercileCenteringBars(SubFigure):
 
         # override colormap
         self.colormap = {
-            "SD Controls": {
+            "Controls": {
                 "LOWER": "lightcoral",
                 "UPPER": "brown"
             },
-            "SD Patients": {
+            "AD Patients": {
                 "LOWER": "mediumturquoise",
                 "UPPER": "darkcyan"
             }
@@ -504,7 +504,7 @@ class GroupTercileCenteringBars(SubFigure):
 
 
 def default_group_name_map():
-    return {"SD Patients": "Patients with SD", "SD Controls": "Controls"}
+    return {"AD Patients": "Patients with AD", "Controls": "Controls"}
 
 
 class GroupTercileArrows(SubFigure):
@@ -515,12 +515,12 @@ class GroupTercileArrows(SubFigure):
 
         # override colormap
         self.colormap = {
-            "SD Controls": {
+            "Controls": {
                 "LOWER": "lightcoral",
                 "CENTRAL": "indianred",
                 "UPPER": "brown"
             },
-            "SD Patients": {
+            "AD Patients": {
                 "LOWER": "mediumturquoise",
                 "CENTRAL": "cadetblue",
                 "UPPER": "darkcyan"
@@ -541,11 +541,11 @@ class GroupTercileArrows(SubFigure):
         }
 
         self.error_colormap = {
-            "SD Patients": {
+            "AD Patients": {
                 "InitialPitch": ColorUtils.alter_brightness("cadetblue", -0.7),
                 "EndingPitch": "cadetblue"
             },
-            "SD Controls": {
+            "Controls": {
                 "InitialPitch": ColorUtils.alter_brightness("lightsalmon", -0.7),
                 "EndingPitch": "lightsalmon"
             }
@@ -805,11 +805,11 @@ class GroupPitchNormal(SubFigure):
 
         # override default colormap
         self.colormap = {
-            "SD Patients": {
+            "AD Patients": {
                 "InitialPitch": ColorUtils.alter_brightness("lightblue", -0.5),
                 "EndingPitch": "lightblue"
             },
-            "SD Controls": {
+            "Controls": {
                 "InitialPitch": ColorUtils.alter_brightness("lightsalmon", -0.7),
                 "EndingPitch": "lightsalmon"
             }
@@ -898,58 +898,56 @@ class Discussion(Figure):
         self.sub_figures = []
         self.kwargs = kwargs
 
-        self.axes = [self.figure.add_subplot(2, 1, 1),
-                     self.figure.add_subplot(2, 1, 2)]
+        self.figure.tight_layout()
+        self.figure.subplots_adjust(hspace=0, wspace=0.3)
+
+        self.axes = [self.figure.add_subplot(1, 1, 1)]
+                     # self.figure.add_subplot(2, 1, 2)]
 
         if render:
             self.render()
-        self.figure.text(0.03, 0.9, "A", fontsize="xx-large", fontweight="bold")
-        self.figure.text(0.03, 0.45, "B", fontsize="xx-large", fontweight="bold")
+        # self.figure.text(0.03, 0.9, "A", fontsize="xx-large", fontweight="bold")
+        # self.figure.text(0.03, 0.45, "B", fontsize="xx-large", fontweight="bold")
 
     def render(self):
         RecruitmentDiscussion(self.axes[0]).render()
-        SensitivityDiscussion(self.axes[1]).render()
+        # SensitivityDiscussion(self.axes[1]).render()
 
 
-class SensitivityDiscussion(SubFigure):
-    def __init__(self, axis, **kwargs):
-        super().__init__(**kwargs)
-        self.axis = axis
-
-    def render(self):
-        def sigmoid(arr, scale=1., offset=0):
-            arr = np.asarray(arr)
-            result = 1 / (1 + np.exp(-(arr - offset) * scale))
-            return result
-
-        SchematicAxes = self.axis
-
-        SchematicAxes.set_xlim([-200, 200])
-        SchematicAxes.set_ylim([0, 1])
-        SchematicAxes.set_yticklabels([])
-        SchematicAxes.set_yticks([])
-
-        domains = [np.linspace(-200, 0, 400), np.linspace(0, 200, 400)]
-
-        SchematicAxes.plot(domains[0], sigmoid(-domains[0], scale=0.05, offset=100), color="cadetblue",
-                           linewidth=3)
-        SchematicAxes.plot(domains[1], sigmoid(domains[1], scale=0.05, offset=100), color="cadetblue",
-                           linewidth=3,
-                           label="Controls")
-        SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.05, offset=100), color="indianred",
-                           linewidth=3)
-        SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.05, offset=100), color="indianred",
-                           linewidth=3,
-                           label="SD")
-
-        SchematicAxes.set_ylabel("Feedback Sensitivity")
-
-        x_ticks = np.arange(-200, 201, 100)
-        y_ticks = np.arange(0, 1, 0.25)
-        SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
-        SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
-
-        SchematicAxes.set_xlabel("Pitch Deviation from Median")
+# class SensitivityDiscussion(SubFigure):
+#     def __init__(self, axis, **kwargs):
+#         super().__init__(**kwargs)
+#         self.axis = axis
+#
+#     def render(self):
+#         def sigmoid(arr, scale=1., offset=0):
+#             arr = np.asarray(arr)
+#             result = 1 / (1 + np.exp(-(arr - offset) * scale))
+#             return result
+#
+#         SchematicAxes = self.axis
+#
+#         SchematicAxes.set_xlim([-200, 200])
+#         SchematicAxes.set_ylim([0, 1])
+#         SchematicAxes.set_yticklabels([])
+#         SchematicAxes.set_yticks([])
+#
+#         domains = [np.linspace(-200, 0, 400), np.linspace(0, 200, 400)]
+#         SchematicAxes.plot(domains[0] + 10, sigmoid(-domains[0], scale=0.05, offset=100), color="black",
+#                            linewidth=3,
+#                            label="")
+#         SchematicAxes.plot(domains[1] + 10, sigmoid(domains[1], scale=0.05, offset=100), color="indianred",
+#                            linewidth=3,
+#                            label="SD")
+#
+#         SchematicAxes.set_ylabel("Feedback Sensitivity")
+#
+#         x_ticks = np.arange(-200, 201, 100)
+#         y_ticks = np.arange(0, 1, 0.25)
+#         SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
+#         SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
+#
+#         SchematicAxes.set_xlabel("Pitch Deviation from Median")
 
 
 class RecruitmentDiscussion(SubFigure):
@@ -964,29 +962,28 @@ class RecruitmentDiscussion(SubFigure):
 
         SchematicAxes = self.axis
 
-        SchematicAxes.set_xlim([-200, 200])
-        SchematicAxes.set_xticklabels([])
+        SchematicAxes.set_xlim([0, 200])
         SchematicAxes.set_ylim([0, 1])
         SchematicAxes.set_yticklabels([])
 
-        domain = np.linspace(-200, 200, 400)
+        domain = np.linspace(0, 200, 400)
 
-        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=0), color="cadetblue",
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=130), color="gray",
                            linewidth=3,
-                           label="Controls")
-        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=-60), color="indianred",
+                           label="Raising")
+        SchematicAxes.plot(domain, sigmoid(domain, scale=0.05, offset=90), color="darkgray",
                            linewidth=3,
-                           label="SD")
+                           label="Lowering")
 
-        SchematicAxes.set_ylabel("MN Recruitment")
+        SchematicAxes.set_ylabel("Effort Required for Pitch Change")
+        SchematicAxes.set_xlabel("Initial Pitch Deviation from Median")
 
-        x_ticks = np.arange(-200, 200, 100)
+        x_ticks = np.arange(0, 201, 50)
         y_ticks = np.arange(0, 1, 0.25)
         SchematicAxes.grid(color='grey', linestyle='--', zorder=0)
         SchematicAxes.set_xticks(x_ticks), SchematicAxes.set_yticks(y_ticks)
 
-        SchematicAxes.legend(loc='upper center', bbox_to_anchor=(0.5, 1.30),
-                             ncol=2, frameon=False)
+        SchematicAxes.legend(loc='upper left', frameon=False)
 
 
 class Extra(Figure):
@@ -1023,11 +1020,11 @@ class PitchMovement(SubFigure):
         }
 
         self.colormap = {
-            "SD Controls": {
+            "Controls": {
                 "LOWER": "lightcoral",
                 "UPPER": "brown"
             },
-            "SD Patients": {
+            "AD Patients": {
                 "LOWER": "mediumturquoise",
                 "UPPER": "darkcyan"
             }
