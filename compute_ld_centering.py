@@ -2,6 +2,7 @@ import time
 
 import matplotlib
 import numpy as np
+import pandas as pd
 
 from matplotlib import pyplot as plt
 
@@ -26,7 +27,7 @@ CACHE_PATH = RESEARCH_DIR / "results" / COHORT / "cache"
 
 # Run configuration settings
 
-FORCE_ANALYSIS = False
+FORCE_ANALYSIS = True
 
 # Default/Global plotting settings
 DPI = 300
@@ -56,11 +57,46 @@ matplotlib.rc('font', **font)
 Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(CACHE_PATH).mkdir(parents=True, exist_ok=True)
 
+ld = Dataset(str(INPUT_PATH / "raw_dataset_ext.mat"), "ld_dataset_voice_aligned")
+
+if FORCE_ANALYSIS or not (Path(CACHE_PATH) / "centering_data.csv").is_file():
+    print("Generating centering CSV.")
+
+    subject_datasets = []
+
+    # generate centering dataset (without trimming)
+    for cohort_name, cohort in ld.cohorts.items():
+        for subject in cohort.subjects:
+            initial_index = (subject.taxis >= 0.0) & (subject.taxis < 0.05)
+            midtrial_index = (subject.taxis >= 0.150) & (subject.taxis < 0.200)
+
+            subject_data = pd.DataFrame()
+
+            subject_data["Starting Pitch (Hz)"] = np.mean(subject.trials[:, initial_index], axis=1)
+            subject_data["Ending Pitch (Hz)"] = np.mean(subject.trials[:, midtrial_index], axis=1)
+
+            subject_data["Starting Pitch (Cents)"] = 1200 * np.log2(subject_data["Starting Pitch (Hz)"] / np.median(subject_data["Starting Pitch (Hz)"]))
+            subject_data["Ending Pitch (Cents)"] = 1200 * np.log2(subject_data["Ending Pitch (Hz)"] / np.median(subject_data["Ending Pitch (Hz)"]))
+
+            subject_data["Centering (Cents)"] = np.abs(subject_data["Starting Pitch (Cents)"]) - np.abs(subject_data["Ending Pitch (Cents)"])
+            subject_data["Group Name"] = cohort_name
+            subject_data["Subject Name"] = subject.name
+
+            subject_datasets.append(subject_data)
+
+    centering_data = pd.concat(subject_datasets, ignore_index=True)
+
+    # in-place renaming scheme
+    centering_data['Group Name'] = centering_data['Group Name'].replace('Patients', 'LD Patients')
+    centering_data[["Group Name", "Subject Name", "Starting Pitch (Cents)", "Ending Pitch (Cents)", "Centering (Cents)"]].to_csv(CACHE_PATH / "centering_data.csv", index=False)
+
+    print(f"Analysis Completed in {round(time.time() - start_time, 2)} seconds")
+
 if FORCE_ANALYSIS or not (Path(CACHE_PATH / "trimmed_dataset.csv").is_file()
                           and Path(CACHE_PATH / "peripheral_dataset.csv").is_file()):
     print("Reanalyzing dataset.")
 
-    centering_data = pd.read_csv(INPUT_PATH / "centering_data.csv")
+    centering_data = pd.read_csv(CACHE_PATH / "centering_data.csv")
 
     # useful to know which subject corresponds to each subject index
     subject_alias_table = {group: centering_data[centering_data["Group Name"] == group]["Subject Name"].unique()
@@ -210,7 +246,6 @@ for axis in fig.get_axes():
 fig.savefig(OUTPUT_PATH / "group_pitch_centering_distribution.png", bbox_inches='tight')
 plt.close()
 
-
 for tercile in ["UPPER", "LOWER"]:
     fig = plt.figure(figsize=(6., 4.8), dpi=DPI)
     fig.add_axes((0, 0, 1, 0.5))
@@ -242,14 +277,12 @@ print(f"Output dataset generated in {round(time.time() - start_time, 2)} seconds
 
 print("== Subject-level analysis ==")
 
-ld = Dataset(str(INPUT_PATH / "raw_dataset.mat"), "ld_dataset_voice_aligned")
-
 save_directory = str(OUTPUT_PATH / "raw")
 Path(save_directory).mkdir(parents=True, exist_ok=True)
 
-for cohort_name in []: #ld.cohorts:
+for cohort_name in []: #["Patients", "Controls"]:
     for subject_index, _ in enumerate(ld.cohorts[cohort_name].subjects):
-        print(f"Plotting {cohort_name} #{subject_index}")
+        print(f"Plotting {cohort_name} #{subject_index + 1}")
         subject = ld.cohorts[cohort_name].subjects[subject_index]
 
         trial_count = subject.trials.shape[0]

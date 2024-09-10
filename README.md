@@ -7,3 +7,9 @@
 ## Running Analysis
 
 Running `compute_xx_centering.py` runs centering analysis. The current implementations use cached results for the analysis component (it would be very useful if this same idea could be applied to the plotting code too). Caching can be disabled by using the `FORCE_ANALYSIS` variable to `True` (in existing implementations).
+
+## Input Formats
+
+The current script design enables injecting the cached state directly. For example, the AD dataset was provided as a CSV (intermediate format) with precomputed pitch centering data in cents. On the other hand, the LD dataset was imported directly from MATLAB data structures.
+
+To import data from MATLAB, save the data into a single MATLAB struct, which itself is saved into a `.mat` file. Then, pass this into a `Dataset` constructor (`subject_analysis.py`). 

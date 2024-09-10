@@ -26,7 +26,7 @@ def mark_significance_bar(dataset: pd.DataFrame, figure: plt.Figure, pairs, plot
     for group in plot_settings["plot_order"]:
         group_data = dataset[dataset[group_column] == group]
 
-        for tercile in group_data["Tercile"].unique():
+        for tercile in sorted(group_data["Tercile"].unique()):
             xpos.append(prev)
             prev += plot_settings["bar_spacing"]
             plot_indices[(group, tercile)] = xpos[-1]  # position of each group/tercile combination
@@ -59,7 +59,7 @@ def group_tercile_centering_bars(dataset: pd.DataFrame, figure: plt.Figure, plot
     for group in plot_settings["plot_order"]:
         group_data = dataset[dataset[group_column] == group]
 
-        for tercile in group_data["Tercile"].unique():
+        for tercile in sorted(group_data["Tercile"].unique()):
             plot_data.append({
                 "group": group,
                 "tercile": plot_settings["label_alias"][tercile],
