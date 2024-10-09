@@ -49,7 +49,7 @@ The majority of data analysis is done using CSV data. In the existing codebase, 
 
 Figures are plotted using functions in `figure.py`. Each function generates one figure, and generally takes the following format: 
 
-```
+```python
 import figure
 figure_object = plt.figure()
 figure_object.add_axes((...))
