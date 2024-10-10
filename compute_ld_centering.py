@@ -17,6 +17,7 @@ import figure
 from subject_analysis import Dataset, Cohort, Subject
 
 # Global configuration settings
+# @Rabab modify RESEARCH_DIR based on your own file structure
 RESEARCH_DIR = Path(os.path.realpath(__file__)).parent.parent
 
 COHORT = "LD"
