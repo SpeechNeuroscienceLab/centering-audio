@@ -107,9 +107,9 @@ else:
 fig = plt.figure(figsize=(5.0, 4.8), dpi=DPI)
 fig.add_axes((0, 0, 1, 1))
 
-figure.group_tercile_centering_bars(peripheral_dataset,
-                                    fig,
-                                    plot_settings | {
+figure.group_tercile_bars(peripheral_dataset,
+                          fig,
+                          plot_settings | {
                                         # override the plotting settings here
                                         "colormap": {
                                             "Controls": {
@@ -141,9 +141,9 @@ fig.savefig(OUTPUT_PATH / "group_tercile_centering_bars.png", bbox_inches='tight
 fig = plt.figure(figsize=(8, 4.8), dpi=DPI)
 fig.add_axes((0, 0, 1, 1))
 
-figure.group_tercile_centering_bars(peripheral_dataset,
-                                    fig,
-                                    plot_settings | {
+figure.group_tercile_bars(peripheral_dataset,
+                          fig,
+                          plot_settings | {
                                         # override the plotting settings here
                                         "plot_order": [0.0, 0.5, 1.0],
                                         "bar_spacing": 1.0,

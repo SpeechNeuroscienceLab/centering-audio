@@ -118,11 +118,16 @@ def rename_subjects_by_group(
         experiment: pd.DataFrame,
         indexing=("Group Name", "Subject Name"),
 ):
+    verbose = False
+
     experiment = experiment.copy()
 
     for group_name, group_data in experiment.groupby(indexing[0]):
         subjects_old = group_data[indexing[1]].unique()
         subjects_new = [str(group_name).replace(" ", "") + str(i) for i in range(1, len(subjects_old) + 1)]
+        if verbose:
+            for i in range(len(subjects_old)):
+                print(f"Renaming {group_name} subjects: {subjects_old[i]} -> {subjects_new[i]}")
         experiment.loc[experiment[indexing[0]] == group_name, indexing[1]] = (
             experiment.loc[experiment[indexing[0]] == group_name, indexing[1]].replace(subjects_old, subjects_new))
 

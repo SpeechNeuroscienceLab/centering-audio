@@ -24,7 +24,8 @@ class Dataset:
         # load script
         mat_dict = loadmat(path, simplify_cells=True)
 
-        assert tlv in mat_dict, f"Top Level Variable {tlv} not found in given .mat file"
+        assert tlv in mat_dict, (f"Top Level Variable {tlv} not found in given .mat file. "
+                                 f"Did you mean {mat_dict.keys()}?")
         dataset = mat_dict[tlv]
 
         for cohort, cohort_data in dataset.items():

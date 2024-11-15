@@ -45,8 +45,8 @@ def __significance_bar(axes: plt.Axes, start, end, height, display_string,
               bbox=dict(facecolor='1.', edgecolor='none', boxstyle='Square,pad=' + str(box_pad)), size=fontsize)
 
 
-def group_tercile_centering_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings: dict,
-                                 group_column="Group Name", quantity_column="Centering (Cents)"):
+def group_tercile_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings: dict,
+                       group_column="Group Name", quantity_column="Centering (Cents)"):
     # same approach as before: precompute attributes before assembly
     # default to the first axes
     axes = figure.get_axes()[0]
@@ -111,6 +111,29 @@ def group_tercile_centering_bars(dataset: pd.DataFrame, figure: plt.Figure, plot
                 )
 
 
+# mode: zero assumes that all other values of the xrange are 0
+# mode: extend assumes that outer values saturate
+def __parzen_smooth(x, y, xrange=None, granularity=2, filter_length=50, mode="zeros"):
+    if xrange is None:
+        xrange = [min(x), max(x)]
+    y_upsampled = np.interp(np.arange(xrange[0], xrange[1], granularity), x, y)
+
+    # patch in y values to enable saturation
+    if mode == "extend":
+        y_upsampled = np.append(np.repeat(y_upsampled[0], filter_length), y_upsampled)
+        y_upsampled = np.append(y_upsampled, np.repeat(y_upsampled[-1], filter_length))
+
+    # parzen kernel
+    parzen = signal.windows.parzen(filter_length)
+    normalized_parzen = parzen / np.sum(parzen)
+
+    smooth_y = np.convolve(normalized_parzen, y_upsampled, mode='same')
+    smooth_y = smooth_y[filter_length:smooth_y.shape[0] - filter_length + 1]
+
+    x = np.linspace(xrange[0], xrange[1], len(smooth_y))
+    return x, smooth_y
+
+
 def group_pitch_distributions(dataset: pd.DataFrame, figure: plt.Figure,
                               plot_settings: dict,
                               group_column="Group Name",
@@ -150,18 +173,9 @@ def group_pitch_distributions(dataset: pd.DataFrame, figure: plt.Figure,
 
             bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-            hist_upsampled = np.interp(np.arange(xrange[0], xrange[1], pitch_granularity), bin_centers, hist)
-
-            # parzen kernel
-            parzen = signal.windows.parzen(filter_length)
-            normalized_parzen = parzen / np.sum(parzen)
-
-            smooth_hist = np.convolve(normalized_parzen, hist_upsampled, mode='same')
-
-            # savitzky_golay filter
-            # smooth_hist = signal.savgol_filter(hist, filter_length, polyorder=4)
-
-            x = np.linspace(xrange[0], xrange[1], len(smooth_hist))
+            x, smooth_hist = __parzen_smooth(bin_centers, hist, xrange=xrange,
+                                             granularity=pitch_granularity,
+                                             filter_length=filter_length)
 
             if smooth_on:
                 ax.fill(x, smooth_hist, alpha=0.5, color=plot_settings["colormap"][column])
@@ -206,10 +220,66 @@ def group_centering_distribution(dataset: pd.DataFrame, figure: plt.Figure,
         for i, (startx, endx) in enumerate(zip(initial_dev, mid_dev)):
             axis.plot((startx, endx), (i, i),
                       color="green" if np.abs(startx) > np.abs(endx) else ("violet" if startx > endx else "red"),
-                      alpha=0.75,
-                      lw=2)
+                      alpha=plot_settings["motion_alpha"],
+                      lw=plot_settings["motion_lw"])
         axis.vlines(0, 0, initial_dev.shape[0])
 
     if title is not None:
         axes[0].set_xlabel(f"Pitch (cents) {title}")
 
+
+def group_smooth_centering_distribution(dataset: pd.DataFrame, figure: plt.Figure,
+                                        plot_settings: dict,
+                                        groups: tuple,
+                                        group_column="Group Name",
+                                        distribution_columns=("Starting Pitch (Cents)", "Ending Pitch (Cents)"),
+                                        title=None):
+    # note: axes should match the number of groups
+    axes = figure.get_axes()
+
+    for i, group in enumerate(groups):
+        group_data = dataset[dataset[group_column] == group]
+        axis = axes[i]
+
+        if i != 0:
+            axis.set_xticks([])
+
+        axis.set_ylabel(group)
+        axis.set_yticks([])
+
+        ordering = np.abs(group_data[distribution_columns[0]]).sort_values().index
+
+        initial_dev = np.abs(group_data[distribution_columns[0]])
+        sign_correction = initial_dev / group_data[distribution_columns[0]]
+
+        initial_dev = initial_dev[ordering]
+        mid_dev = (sign_correction * group_data[distribution_columns[1]])[ordering]
+
+        initial_dev.reset_index(drop=True, inplace=True)
+        mid_dev.reset_index(drop=True, inplace=True)
+
+        # pack the trajectories into a matrix for faster computation
+        trajectories = np.zeros([initial_dev.shape[0], 4])
+        # overshoot, positive_centering, negative centering
+        colors = ["violet", "green", "red"]
+        for i, (startx, endx) in enumerate(zip(initial_dev, mid_dev)):
+            trajectories[i] = [i, startx, endx, 1 if np.abs(startx) > np.abs(endx) else (0 if startx > endx else -1)]
+        # smooth out the start points
+        filter_length = 75
+
+        i, smooth_startx = __parzen_smooth(trajectories[:, 0], trajectories[:, 1],
+                                           filter_length=filter_length, mode="extend")
+        for tclass in [1, -1]:
+            class_trajectories = trajectories[trajectories[:, 3] == tclass]
+
+            new_x = np.linspace(trajectories[:, 0].min(), trajectories[:, 0].max(), len(trajectories))
+            class_trajectories = np.column_stack(
+                [new_x] + [np.interp(new_x, class_trajectories[:, 0], class_trajectories[:, i]) for i in
+                           range(1, class_trajectories.shape[1])])
+
+            i, smooth_endx = __parzen_smooth(class_trajectories[:, 0], class_trajectories[:, 2],
+                                             filter_length=filter_length, mode="extend")
+            axis.fill_betweenx(i, smooth_startx, smooth_endx, color=colors[tclass], alpha=0.7)
+
+    if title is not None:
+        axes[0].set_xlabel(f"Pitch (cents) {title}")
