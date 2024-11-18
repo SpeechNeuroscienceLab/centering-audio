@@ -28,12 +28,16 @@ SOURCE_FILE = \
 # "p50dataset.mat"
 #    "raw_dataset_ext.mat"
 
+DEMOGRAPHICS_FILE = \
+    "demographics.csv"
+
 SOURCE_STRUCT = \
     "LD_Patients"
 # "p50dataset"
 #    "ld_dataset_voice_aligned"
 
 INPUT_PATH = RESEARCH_DIR / "datasets" / COHORT
+DEMOGRAPHICS_PATH = INPUT_PATH / DEMOGRAPHICS_FILE
 OUTPUT_PATH = RESEARCH_DIR / "results" / COHORT
 CACHE_PATH = RESEARCH_DIR / "results" / COHORT / "cache"
 
@@ -73,6 +77,7 @@ Path(OUTPUT_PATH).mkdir(parents=True, exist_ok=True)
 Path(CACHE_PATH).mkdir(parents=True, exist_ok=True)
 
 ld = Dataset(str(INPUT_PATH / SOURCE_FILE), SOURCE_STRUCT)
+demographics = pd.read_csv(DEMOGRAPHICS_PATH)
 
 if FORCE_ANALYSIS or not (Path(CACHE_PATH) / "centering_data.csv").is_file():
     print("Generating centering CSV.")
@@ -116,7 +121,17 @@ if FORCE_ANALYSIS or not (Path(CACHE_PATH / "trimmed_dataset.csv").is_file()
                           and Path(CACHE_PATH / "peripheral_dataset.csv").is_file()):
     print("Reanalyzing dataset.")
 
-    centering_data = pd.read_csv(CACHE_PATH / "centering_data.csv")
+    centering_data = pd.merge(pd.read_csv(CACHE_PATH / "centering_data.csv"), demographics, on=["Group Name", "Subject Name"], how="left")
+
+    for column in demographics.columns.values:
+        if column not in ["Group Name", "Subject Name"]:
+            missing_data = centering_data[pd.isnull(centering_data["Age"])]
+            missing_ids = set(zip(missing_data["Group Name"], missing_data["Subject Name"]))
+            print(f"Missing {column} data for {len(missing_ids)} subjects")
+            for group, subject in missing_ids:
+                print(f"Missing {column} data for {group}/{subject}")
+
+
 
     # useful to know which subject corresponds to each subject index
     subject_alias_table = {group: centering_data[centering_data["Group Name"] == group]["Subject Name"].unique()
@@ -346,8 +361,8 @@ for subject_id in []:
         fig.savefig(OUTPUT_PATH / f"raw/{tercile}_{subject_id}_centering_quiver.png", bbox_inches='tight')
         plt.close()
 
-for cohort_name in []:
-    # for cohort_name in ["Patients", "Controls"]:
+# for cohort_name in []:
+for cohort_name in ["Patients", "Controls"]:
     for subject_index, _ in enumerate(ld.cohorts[cohort_name].subjects):
         print(f"Plotting {cohort_name} #{subject_index + 1}")
 
