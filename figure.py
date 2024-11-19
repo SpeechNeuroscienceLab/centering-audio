@@ -187,6 +187,123 @@ def group_pitch_distributions(dataset: pd.DataFrame, figure: plt.Figure,
         ax.set_yticks([])
 
 
+def group_subject_overshoot_stacked_bars(dataset: pd.DataFrame, figure: plt.Figure,
+                                         plot_settings: dict,
+                                         group_column="Group Name",
+                                         subject_column="Subject Name",
+                                         centering_column="Centering (Cents)",
+                                         movement_column="Normalized Pitch Movement"):
+    # note: axes should match the number of groups
+    axes = figure.get_axes()
+
+    for i, group in enumerate(dataset[group_column].unique()):
+        group_data = dataset[dataset[group_column] == group]
+        axis = axes[i]
+
+        plot_height = []
+        plot_err = []
+
+        for subject in group_data[subject_column].unique():
+            subject_data = group_data[group_data[subject_column] == subject]
+            centering_class = np.zeros_like(subject_data[centering_column])
+            centering_class[subject_data[centering_column] > 0] = 1  # positive centering
+            centering_class[(subject_data[centering_column] < 0) & (0 < subject_data[movement_column])] = 0  # overshoot
+            centering_class[
+                (subject_data[centering_column] < 0) & (subject_data[movement_column] < 0)] = -1  #anticentering
+
+            # divide by zero fix
+            trial_percentages = np.array([
+                np.sum(centering_class == 1) / centering_class.shape[0],
+                np.sum(centering_class == 0) / centering_class.shape[0],
+                np.sum(centering_class == -1) / centering_class.shape[0],
+            ])
+
+            plot_height.append(trial_percentages)
+
+        # plot the triples
+        axis.bar(np.arange(len(plot_height)) * 2, [x[0] for x in plot_height], bottom=[0 for x in plot_height],
+                 label="Centering Frequency", color="green", alpha=0.75)
+        axis.bar(np.arange(len(plot_height)) * 2, [x[1] for x in plot_height], bottom=[x[0] for x in plot_height],
+                 label="Overshoot Frequency", color="violet", alpha=0.75)
+        axis.bar(np.arange(len(plot_height)) * 2, [x[2] for x in plot_height],
+                 bottom=[x[0] + x[1] for x in plot_height],
+                 label="Anticentering Frequency", color="red", alpha=0.75)
+
+        axis.set_xticks(ticks=np.arange(len(plot_height)) * 2)
+        axis.set_xticklabels(np.arange(len(plot_height)) + 1)
+
+        axis.set_xlabel(group)
+
+        if i == len(axes) - 1:
+            axis.legend()
+
+
+def group_subject_centering_overshoot_bars(dataset: pd.DataFrame, figure: plt.Figure,
+                                           plot_settings: dict,
+                                           group_column="Group Name",
+                                           subject_column="Subject Name",
+                                           centering_column="Centering (Cents)",
+                                           movement_column="Normalized Pitch Movement"):
+    # note: axes should match the number of groups
+    axes = figure.get_axes()
+
+    for i, group in enumerate(dataset[group_column].unique()):
+        group_data = dataset[dataset[group_column] == group]
+        axis = axes[i]
+
+        plot_height = []
+        plot_err = []
+
+        for subject in group_data[subject_column].unique():
+            subject_data = group_data[group_data[subject_column] == subject]
+            centering_class = np.zeros_like(subject_data[centering_column])
+            centering_class[subject_data[centering_column] > 0] = 1  # positive centering
+            centering_class[(subject_data[centering_column] < 0) & (0 < subject_data[movement_column])] = 0  # overshoot
+            centering_class[
+                (subject_data[centering_column] < 0) & (subject_data[movement_column] < 0)] = -1  #anticentering
+
+            positive_trials = subject_data[centering_class == 1]
+            overshoot_trials = subject_data[centering_class == 0]
+            negative_trials = subject_data[centering_class == -1]
+
+            # divide by zero fix
+            trial_percentages = [x if x != 0 else -1 for x in [
+                positive_trials.shape[0] / subject_data.shape[0],
+                overshoot_trials.shape[0] / subject_data.shape[0],
+                negative_trials.shape[0] / subject_data.shape[0]
+            ]]
+
+            plot_height.append([0 if np.isnan(x) else x for x in [
+                np.mean(positive_trials[centering_column]) * trial_percentages[0],
+                np.mean((overshoot_trials[movement_column] - overshoot_trials[centering_column]) / 2) *
+                trial_percentages[1],
+                np.mean(-negative_trials[centering_column]) * trial_percentages[2]
+            ]])
+
+            plot_err.append((0, 0, 0
+                             # standard_error(positive_trials[centering_column] * trial_percentages[0]),
+                             # standard_error(
+                             #     (overshoot_trials[movement_column] - overshoot_trials[centering_column]) / trial_percentages[1]),
+                             # standard_error(negative_trials[centering_column] / trial_percentages[2])
+                             ))
+
+        # plot the triples
+        axis.bar(np.arange(len(plot_height)) * 2, [x[0] for x in plot_height], yerr=[x[0] for x in plot_err],
+                 label="Mean Centering", color="green", alpha=0.75)
+        axis.bar(np.arange(len(plot_height)) * 2 + 0.2, [x[2] for x in plot_height], yerr=[x[2] for x in plot_err],
+                 label="Mean Anticentering", color="red", alpha=0.75)
+        axis.bar(np.arange(len(plot_height)) * 2 + 0.4, [x[1] for x in plot_height], yerr=[x[1] for x in plot_err],
+                 label="Mean Overshoot", color="violet", alpha=0.75)
+
+        axis.set_xticks(ticks=np.arange(len(plot_height)) * 2)
+        axis.set_xticklabels(np.arange(len(plot_height)) + 1)
+
+        axis.set_xlabel(group)
+
+        if i == len(axes) - 1:
+            axis.legend()
+
+
 def group_centering_distribution(dataset: pd.DataFrame, figure: plt.Figure,
                                  plot_settings: dict,
                                  groups: tuple,

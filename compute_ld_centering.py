@@ -121,17 +121,17 @@ if FORCE_ANALYSIS or not (Path(CACHE_PATH / "trimmed_dataset.csv").is_file()
                           and Path(CACHE_PATH / "peripheral_dataset.csv").is_file()):
     print("Reanalyzing dataset.")
 
-    centering_data = pd.merge(pd.read_csv(CACHE_PATH / "centering_data.csv"), demographics, on=["Group Name", "Subject Name"], how="left")
+    centering_data = pd.merge(pd.read_csv(CACHE_PATH / "centering_data.csv"), demographics,
+                              on=["Group Name", "Subject Name"], how="left")
 
     for column in demographics.columns.values:
         if column not in ["Group Name", "Subject Name"]:
             missing_data = centering_data[pd.isnull(centering_data["Age"])]
             missing_ids = set(zip(missing_data["Group Name"], missing_data["Subject Name"]))
-            print(f"Missing {column} data for {len(missing_ids)} subjects")
-            for group, subject in missing_ids:
-                print(f"Missing {column} data for {group}/{subject}")
-
-
+            if len(missing_ids) > 0:
+                print(f"Missing {column} data for {len(missing_ids)} subjects")
+                for group, subject in missing_ids:
+                    print(f"Missing {column} data for {group}/{subject}")
 
     # useful to know which subject corresponds to each subject index
     subject_alias_table = {group: centering_data[centering_data["Group Name"] == group]["Subject Name"].unique()
@@ -143,8 +143,8 @@ if FORCE_ANALYSIS or not (Path(CACHE_PATH / "trimmed_dataset.csv").is_file()
         trim_by_subject_trial_count,  # remove subjects with <25 trials
         trim_by_group_initial_pitch_distribution,  # remove trials which have initial pitch deviation >2std from mean
         (trim_by_subject_name,
-        dict(exclude=[("LD Patients", "20170516"), ("LD Patients", "20170307")])
-        ),
+         dict(exclude=[("LD Patients", "20170516"), ("LD Patients", "20170307")])
+         ),
         rename_subjects_by_group  # is this strictly necessary?
     ])
 
@@ -181,24 +181,24 @@ fig.add_axes((0, 0, 1, 1))
 figure.group_tercile_bars(peripheral_dataset,
                           fig,
                           plot_settings | {
-                                        # override the plotting settings here
-                                        "colormap": {
-                                            "Controls": {
-                                                "LOWER": "lightcoral",
-                                                "UPPER": "brown"
-                                            },
-                                            "LD Patients": {
-                                                "LOWER": "mediumturquoise",
-                                                "UPPER": "darkcyan"
-                                            }
-                                        },
-                                        "label_alias": {
-                                            "UPPER": "Lowering",
-                                            "LOWER": "Raising"
-                                        },
-                                        "bar_spacing": 1.0,
-                                        "group_spacing": 0.2,
-                                    })
+                              # override the plotting settings here
+                              "colormap": {
+                                  "Controls": {
+                                      "LOWER": "lightcoral",
+                                      "UPPER": "brown"
+                                  },
+                                  "LD Patients": {
+                                      "LOWER": "mediumturquoise",
+                                      "UPPER": "darkcyan"
+                                  }
+                              },
+                              "label_alias": {
+                                  "UPPER": "Lowering",
+                                  "LOWER": "Raising"
+                              },
+                              "bar_spacing": 1.0,
+                              "group_spacing": 0.2,
+                          })
 
 # figure.mark_significance_bar(peripheral_dataset, fig,
 #                              (("Controls", "LOWER"), ("Controls", "UPPER")),
@@ -215,7 +215,6 @@ fig.savefig(OUTPUT_PATH / "group_tercile_centering_bars.png", bbox_inches='tight
 plt.close()
 
 fig = plt.figure(figsize=(6, 4), dpi=DPI)
-
 figure.group_pitch_distributions(trimmed_dataset, fig, plot_settings | {
     "colormap": {
         "Ending Pitch (Cents)": "darkgreen",
@@ -224,6 +223,21 @@ figure.group_pitch_distributions(trimmed_dataset, fig, plot_settings | {
 })
 
 fig.savefig(OUTPUT_PATH / "group_pitch_dist.png", bbox_inches='tight')
+plt.close()
+
+fig = plt.figure(figsize=(12, 8), dpi=DPI)
+fig.add_axes((0, 0, 1, 0.5))
+fig.add_axes((0, 0.5, 1, 0.5))
+figure.group_subject_centering_overshoot_bars(peripheral_dataset, fig, plot_settings)
+
+fig.savefig(OUTPUT_PATH / "group_subj_pitch_dist.png", bbox_inches='tight')
+plt.close()
+
+fig = plt.figure(figsize=(12, 8), dpi=DPI)
+fig.add_axes((0, 0, 1, 0.46))
+fig.add_axes((0, 0.54, 1, 0.46))
+figure.group_subject_overshoot_stacked_bars(peripheral_dataset, fig, plot_settings)
+fig.savefig(OUTPUT_PATH / "group_subj_centering_freq.png", bbox_inches='tight')
 plt.close()
 
 fig = plt.figure(figsize=(6, 4), dpi=DPI)
@@ -244,24 +258,24 @@ fig.add_axes((0, 0, 1, 1))
 figure.group_tercile_bars(extended_peripheral_dataset,
                           fig,
                           plot_settings | {
-                                        # override the plotting settings here
-                                        "colormap": {
-                                            "Controls": {
-                                                "LOWER": "lightcoral",
-                                                "UPPER": "brown"
-                                            },
-                                            "LD Patients": {
-                                                "LOWER": "mediumturquoise",
-                                                "UPPER": "darkcyan"
-                                            }
-                                        },
-                                        "label_alias": {
-                                            "UPPER": "Lowering",
-                                            "LOWER": "Raising"
-                                        },
-                                        "bar_spacing": 1.0,
-                                        "group_spacing": 0.2,
-                                    },
+                              # override the plotting settings here
+                              "colormap": {
+                                  "Controls": {
+                                      "LOWER": "lightcoral",
+                                      "UPPER": "brown"
+                                  },
+                                  "LD Patients": {
+                                      "LOWER": "mediumturquoise",
+                                      "UPPER": "darkcyan"
+                                  }
+                              },
+                              "label_alias": {
+                                  "UPPER": "Lowering",
+                                  "LOWER": "Raising"
+                              },
+                              "bar_spacing": 1.0,
+                              "group_spacing": 0.2,
+                          },
                           quantity_column="Normalized Pitch Movement")
 
 # figure.mark_significance_bar(peripheral_dataset, fig,
@@ -361,8 +375,8 @@ for subject_id in []:
         fig.savefig(OUTPUT_PATH / f"raw/{tercile}_{subject_id}_centering_quiver.png", bbox_inches='tight')
         plt.close()
 
-# for cohort_name in []:
-for cohort_name in ["Patients", "Controls"]:
+for cohort_name in []:
+    # for cohort_name in ["Patients", "Controls"]:
     for subject_index, _ in enumerate(ld.cohorts[cohort_name].subjects):
         print(f"Plotting {cohort_name} #{subject_index + 1}")
 
