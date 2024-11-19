@@ -221,15 +221,15 @@ def group_subject_overshoot_stacked_bars(dataset: pd.DataFrame, figure: plt.Figu
             plot_height.append(trial_percentages)
 
         # plot the triples
-        axis.bar(np.arange(len(plot_height)) * 2, [x[0] for x in plot_height], bottom=[0 for x in plot_height],
+        axis.bar(np.arange(len(plot_height)), [x[0] for x in plot_height], bottom=[0 for x in plot_height],
                  label="Centering Frequency", color="green", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * 2, [x[1] for x in plot_height], bottom=[x[0] for x in plot_height],
+        axis.bar(np.arange(len(plot_height)), [x[1] for x in plot_height], bottom=[x[0] for x in plot_height],
                  label="Overshoot Frequency", color="violet", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * 2, [x[2] for x in plot_height],
+        axis.bar(np.arange(len(plot_height)), [x[2] for x in plot_height],
                  bottom=[x[0] + x[1] for x in plot_height],
                  label="Anticentering Frequency", color="red", alpha=0.75)
 
-        axis.set_xticks(ticks=np.arange(len(plot_height)) * 2)
+        axis.set_xticks(ticks=np.arange(len(plot_height)))
         axis.set_xticklabels(np.arange(len(plot_height)) + 1)
 
         axis.set_xlabel(group)

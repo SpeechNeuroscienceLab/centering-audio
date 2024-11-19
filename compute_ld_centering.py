@@ -233,9 +233,9 @@ figure.group_subject_centering_overshoot_bars(peripheral_dataset, fig, plot_sett
 fig.savefig(OUTPUT_PATH / "group_subj_pitch_dist.png", bbox_inches='tight')
 plt.close()
 
-fig = plt.figure(figsize=(12, 8), dpi=DPI)
-fig.add_axes((0, 0, 1, 0.46))
-fig.add_axes((0, 0.54, 1, 0.46))
+fig = plt.figure(figsize=(10, 6), dpi=DPI)
+fig.add_axes((0, 0, 1, 0.45))
+fig.add_axes((0, 0.55, 1, 0.45))
 figure.group_subject_overshoot_stacked_bars(peripheral_dataset, fig, plot_settings)
 fig.savefig(OUTPUT_PATH / "group_subj_centering_freq.png", bbox_inches='tight')
 plt.close()
