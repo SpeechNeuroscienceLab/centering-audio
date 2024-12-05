@@ -20,7 +20,7 @@ from subject_analysis import Dataset, Cohort, Subject
 RESEARCH_DIR = Path(os.path.realpath(__file__)).parent.parent
 
 COHORT = \
-    "LD/FullDataset"
+    "LD/FullControls"
 # "LD/AgeMatched"
 
 SOURCE_FILE = \
@@ -301,8 +301,9 @@ fig.savefig(OUTPUT_PATH / "group_pitch_centering_distribution.png", bbox_inches=
 plt.close()
 
 fig = plt.figure(figsize=(6., 4.8), dpi=DPI)
-fig.add_axes((0, 0, 1, 0.5))
-fig.add_axes((0, 0.5, 1, 0.5))
+group_count = len(peripheral_dataset["Group Name"].unique())
+for group_idx in range(group_count):
+    fig.add_axes((0, group_idx/group_count, 1, 1/group_count))
 figure.group_smooth_centering_distribution(peripheral_dataset,
                                            fig, plot_settings | {},
                                            groups=("LD Patients", "Controls"))

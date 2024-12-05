@@ -354,6 +354,8 @@ def group_smooth_centering_distribution(dataset: pd.DataFrame, figure: plt.Figur
     # note: axes should match the number of groups
     axes = figure.get_axes()
 
+    groups = filter(lambda x: x in dataset[group_column].unique(), groups)
+
     for i, group in enumerate(groups):
         group_data = dataset[dataset[group_column] == group]
         axis = axes[i]
