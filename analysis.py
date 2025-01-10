@@ -168,3 +168,42 @@ def compute_trial_tercile(
                 else "LOWER" if row[indexing[2]] < tercile_markers[0]
                 else "CENTRAL", axis=1)
     return trial_tercile
+
+
+def cents(
+        trials: np.ndarray
+):
+    window_medians = np.median(trials, axis=0)
+
+    # covers invalid cents conversions
+    window_medians[window_medians == 0] = 0.1
+    trials[trials <= 0] = 0.1
+
+    trials_cents = 1200 * np.log2(trials / window_medians)
+    return trials_cents
+
+
+def compute_trial_tercile_vector(
+        taxis: np.ndarray,
+        trials: np.ndarray,
+        windows=((0.00, 0.050), (0.150, 0.200)),
+        tercile_labels=(0, 1, 2)
+):
+    trial_count = trials.shape[0]
+
+    trials_cents = cents(trials)
+
+    initial_mask = np.logical_and(taxis >= windows[0][0], taxis <= windows[0][1])
+    initial_window_means = np.mean(trials_cents[:, initial_mask], axis=1)
+    initial_window_order = initial_window_means.argsort()
+
+    tercile_vector = np.zeros(trial_count)
+
+    for i in range(3):
+        trial_indices = initial_window_order[int(i * trial_count / 3): int((i + 1) * trial_count / 3)]
+
+        mask = np.zeros_like(initial_window_order)
+        for trial_idx in trial_indices:
+            tercile_vector[trial_idx] = tercile_labels[i]
+
+    return tercile_vector

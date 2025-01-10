@@ -8,6 +8,9 @@ from scipy import signal
 
 from matplotlib.markers import TICKDOWN
 
+import analysis
+from subject_analysis import Dataset
+
 
 def standard_error(data):
     return np.std(data, ddof=1) / np.sqrt(np.size(data))
@@ -343,6 +346,57 @@ def group_centering_distribution(dataset: pd.DataFrame, figure: plt.Figure,
 
     if title is not None:
         axes[0].set_xlabel(f"Pitch (cents) {title}")
+
+
+def group_average_pitch_track(
+        subjects: list, figure: plt.Figure, plot_settings: dict,
+        title="Group Average Pitch Track"
+):
+    pitch_table = None
+    taxis = None
+    tercile_vector = None
+    for subject in subjects:
+        if taxis is None or pitch_table is None or tercile_vector is None:
+            taxis = subject.taxis
+            pitch_table = analysis.cents(subject.trials)
+            tercile_vector = analysis.compute_trial_tercile_vector(taxis, pitch_table)
+        else:
+            new_taxis = np.union1d(taxis, subject.taxis)
+
+            tercile_vector = np.hstack((
+                tercile_vector,
+                analysis.compute_trial_tercile_vector(subject.taxis, subject.trials)
+            ))
+            pitch_table = np.vstack((
+                np.array([np.interp(new_taxis, taxis, pitch_vector)
+                          for pitch_vector in pitch_table]),
+                np.array([np.interp(new_taxis, subject.taxis, pitch_vector)
+                          for pitch_vector in analysis.cents(subject.trials)])
+            ))
+            taxis = new_taxis
+
+    tercile_masks = [tercile_vector == i for i in range(3)]
+    tercile_labels = ["LOWER", "CENTRAL", "UPPER"]
+
+    axis = figure.get_axes()[0]
+    axis.set_title(title)
+    axis.set_xlabel("Time (s)")
+    axis.set_ylabel("Pitch (cents)")
+
+    full_mask = np.logical_and((taxis >= 0.000), (taxis <= 0.200))
+
+    for tercile in range(3):
+        tercile_trials = pitch_table[tercile_masks[tercile], :]
+        mean_trial = np.mean(tercile_trials, axis=0)
+        error_trial = np.std(tercile_trials, axis=0) / np.sqrt(max(mean_trial.shape))
+        plt.plot(taxis[full_mask], mean_trial[full_mask], label=f"{tercile_labels[tercile]}")
+
+        plt.fill_between(taxis[full_mask],
+                         mean_trial[full_mask] - error_trial[full_mask],
+                         mean_trial[full_mask] + error_trial[full_mask],
+                         alpha=0.5)
+
+    median_trial = np.median(pitch_table, axis=0)
 
 
 def group_smooth_centering_distribution(dataset: pd.DataFrame, figure: plt.Figure,
