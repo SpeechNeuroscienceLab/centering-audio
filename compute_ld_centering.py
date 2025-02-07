@@ -110,6 +110,7 @@ def gen_centering_analysis(
                                          - trimmed_dataset["Starting Pitch (Cents)"])
 
     if filter_pipeline is not None:
+        print("Note: filtering based on filter pipeline")
         trimmed_dataset = pipeline(trimmed_dataset, filter_pipeline)
 
     peripheral_dataset = trimmed_dataset[trimmed_dataset["Tercile"] != "CENTRAL"].reset_index()
