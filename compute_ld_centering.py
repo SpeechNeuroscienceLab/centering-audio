@@ -66,7 +66,8 @@ def gen_centering_csv(
 def gen_centering_analysis(
         demographics,
         CACHE_PATH,
-        trimming_pipeline=None):
+        trimming_pipeline=None,
+        filter_pipeline=None):
 
     # immutable default argument
     if trimming_pipeline is None:
@@ -107,6 +108,9 @@ def gen_centering_analysis(
     trimmed_dataset["Tercile"] = compute_trial_tercile(trimmed_dataset)
     trimmed_dataset["Pitch Movement"] = (trimmed_dataset["Ending Pitch (Cents)"]
                                          - trimmed_dataset["Starting Pitch (Cents)"])
+
+    if filter_pipeline is not None:
+        trimmed_dataset = pipeline(trimmed_dataset, filter_pipeline)
 
     peripheral_dataset = trimmed_dataset[trimmed_dataset["Tercile"] != "CENTRAL"].reset_index()
 
