@@ -139,7 +139,7 @@ def gen_group_figures(
     extended_peripheral_dataset["Pitch Movement Magnitude"] = extended_peripheral_dataset["Pitch Movement"].abs()
 
     # Local-only analysis
-    font = {'family': 'Times New Roman',
+    font = {'family': plot_settings["font_family"],
             'size': plot_settings["font_size"]}
     matplotlib.rc('font', **font)
 
