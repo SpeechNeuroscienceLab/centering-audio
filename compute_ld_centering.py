@@ -304,14 +304,6 @@ def gen_group_figures(
         fig.savefig(OUTPUT_PATH / f"group_{tercile}_pitch_centering_distribution.png", bbox_inches='tight')
         plt.close()
 
-    # generate the average pitch track for each cohort
-    fig = plt.figure(figsize=(6, 5), dpi=DPI)
-    fig.add_axes((0, 0, 1, 0.5))
-    fig.add_axes((0, 0.5, 1, 0.5))
-
-    figure.group_average_pitch_track(dataset, fig, plot_settings | {})
-    plt.close()
-
     print(f"Plots generated in {round(time.time() - start_time, 2)} seconds")
 
     output_dataset = peripheral_dataset.rename(columns={
