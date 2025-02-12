@@ -273,30 +273,6 @@ def gen_group_figures(
     fig.savefig(OUTPUT_PATH / "group_pitch_centering_distribution.png", bbox_inches='tight')
     plt.close()
 
-    fig = plt.figure(figsize=(6., 4.8), dpi=DPI)
-    group_count = len(peripheral_dataset["Group Name"].unique())
-    for group_idx in range(group_count):
-        fig.add_axes((0, group_idx / group_count, 1, 1 / group_count))
-    figure.group_smooth_centering_distribution(peripheral_dataset,
-                                               fig, plot_settings | {},
-                                               groups=("LD Patients", "Controls"))
-    for axis in fig.get_axes():
-        axis.set_xlim((-100, 400))
-    fig.savefig(OUTPUT_PATH / "group_pitch_smooth_centering_distribution.png", bbox_inches='tight')
-    plt.close()
-
-    for tercile in ["UPPER", "LOWER"]:
-        fig = plt.figure(figsize=(6., 4.8), dpi=DPI)
-        fig.add_axes((0, 0, 1, 0.5))
-        fig.add_axes((0, 0.5, 1, 0.5))
-        figure.group_smooth_centering_distribution(peripheral_dataset[peripheral_dataset["Tercile"] == tercile],
-                                                   fig, plot_settings | {}, title=f"[{tercile.lower()}]",
-                                                   groups=("LD Patients", "Controls"))
-        for axis in fig.get_axes():
-            axis.set_xlim((-100, 400))
-        fig.savefig(OUTPUT_PATH / f"group_{tercile}_pitch_smooth_centering_distribution.png", bbox_inches='tight')
-        plt.close()
-
     for tercile in ["UPPER", "LOWER"]:
         fig = plt.figure(figsize=(6., 4.8), dpi=DPI)
         fig.add_axes((0, 0, 1, 0.5))
