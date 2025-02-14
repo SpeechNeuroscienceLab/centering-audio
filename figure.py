@@ -456,3 +456,50 @@ def group_smooth_centering_distribution(dataset: pd.DataFrame, figure: plt.Figur
 
     if title is not None:
         axes[0].set_xlabel(f"Pitch (cents) {title}")
+
+
+def draw_triangle(axis, x, start, end, width=0.5, color="black", alpha=0.5):
+    axis.fill([x, x + width/2, x - width/2], [end, start, start],
+              color=color, lw=2, alpha=alpha)
+
+
+def group_arrow_distribution(dataset: pd.DataFrame,
+                             figure: plt.Figure,
+                             plot_settings: dict,
+                             groups: tuple,
+                             group_column="Group Name",
+                             title=None):
+
+    axes = figure.get_axes()
+
+    for i, group in enumerate(groups):
+        group_data = dataset[dataset[group_column] == group]
+        axis = axes[i]
+
+        for j, subject in enumerate(group_data["Subject Name"].unique()):
+            subject_data = dataset[dataset["Subject Name"] == subject]
+
+            # get the average start, end pitch of each tercile
+            pitch_vectors = {}
+
+            for tercile in subject_data["Tercile"].unique():
+                tercile_data = subject_data[subject_data["Tercile"] == tercile]
+
+                pitch_vectors[tercile] = {
+                    "start": np.mean(tercile_data["Starting Pitch (Cents)"]),
+                    "end": np.mean(tercile_data["Ending Pitch (Cents)"])
+                }
+
+                draw_triangle(axis, j + 0.5, pitch_vectors[tercile]["start"], pitch_vectors[tercile]["end"],
+                              color=plot_settings["colormap"][group],
+                              alpha=0.2 if tercile == "CENTRAL" else 0.5)
+
+        axis.set_xticks(np.arange(len(group_data["Subject Name"].unique())) + 0.5)
+        axis.set_xticklabels(np.arange(len(group_data["Subject Name"].unique())) + 1)
+        # set x ticks labels
+        axis.set_xlabel("Subject #")
+
+        if i == 0:
+            axis.set_ylabel("Pitch (cents)")
+
+        axis.set_title(group)
