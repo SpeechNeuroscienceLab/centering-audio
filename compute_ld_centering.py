@@ -37,16 +37,18 @@ def gen_centering_csv(
 
             subject_data = pd.DataFrame()
 
-            subject_data["Starting Pitch (Hz)"] = np.mean(subject.trials[:, initial_index], axis=1)
-            subject_data["Ending Pitch (Hz)"] = np.mean(subject.trials[:, midtrial_index], axis=1)
+            median_pitch_hz = np.median(subject.trials, axis=0)
 
-            subject_data["Starting Pitch (Cents)"] = 1200 * np.log2(
-                subject_data["Starting Pitch (Hz)"] / np.median(subject_data["Starting Pitch (Hz)"]))
-            subject_data["Ending Pitch (Cents)"] = 1200 * np.log2(
-                subject_data["Ending Pitch (Hz)"] / np.median(subject_data["Ending Pitch (Hz)"]))
+            assert median_pitch_hz.shape[0] == subject.taxis.shape[0]
 
-            subject_data["Centering (Cents)"] = np.abs(subject_data["Starting Pitch (Cents)"]) - np.abs(
-                subject_data["Ending Pitch (Cents)"])
+            subject.trials_cents = 1200 * np.log2(
+                subject.trials / median_pitch_hz
+            )
+
+            subject_data["Starting Pitch (Cents)"] = np.mean(subject.trials_cents[:, initial_index], axis=1)
+            subject_data["Ending Pitch (Cents)"] = np.mean(subject.trials_cents[:, midtrial_index], axis=1)
+
+            subject_data["Centering (Cents)"] = np.abs(subject_data["Ending Pitch (Cents)"] - subject_data["Starting Pitch (Cents)"])
             subject_data["Group Name"] = cohort_name
             subject_data["Subject Name"] = subject.name
 
