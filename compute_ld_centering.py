@@ -42,13 +42,15 @@ def gen_centering_csv(
             assert median_pitch_hz.shape[0] == subject.taxis.shape[0]
 
             subject.trials_cents = 1200 * np.log2(
-                subject.trials / median_pitch_hz
+                np.divide(subject.trials, median_pitch_hz, out=np.zeros_like(subject.trials),
+                          where=median_pitch_hz != 0)
             )
 
             subject_data["Starting Pitch (Cents)"] = np.mean(subject.trials_cents[:, initial_index], axis=1)
             subject_data["Ending Pitch (Cents)"] = np.mean(subject.trials_cents[:, midtrial_index], axis=1)
 
-            subject_data["Centering (Cents)"] = np.abs(subject_data["Ending Pitch (Cents)"] - subject_data["Starting Pitch (Cents)"])
+            subject_data["Centering (Cents)"] = np.abs(
+                subject_data["Ending Pitch (Cents)"] - subject_data["Starting Pitch (Cents)"])
             subject_data["Group Name"] = cohort_name
             subject_data["Subject Name"] = subject.name
 
@@ -70,7 +72,6 @@ def gen_centering_analysis(
         CACHE_PATH,
         trimming_pipeline=None,
         filter_pipeline=None):
-
     # immutable default argument
     if trimming_pipeline is None:
         trimming_pipeline = [
@@ -159,12 +160,12 @@ def gen_group_figures(
                                   # override the plotting settings here
                                   "colormap": {
                                       "Controls": {
-                                          "LOWER": "lightcoral",
-                                          "UPPER": "brown"
+                                          "LOWER": "navajowhite",
+                                          "UPPER": "darkorange"
                                       },
                                       "LD Patients": {
-                                          "LOWER": "mediumturquoise",
-                                          "UPPER": "darkcyan"
+                                          "LOWER": "cornflowerblue",
+                                          "UPPER": "midnightblue"
                                       }
                                   },
                                   "label_alias": {
@@ -184,7 +185,7 @@ def gen_group_figures(
     #                              height=0)  # manual height adjustment
 
     # manual visual adjustments
-    fig.get_axes()[0].set_ylim((0, 30))
+    fig.get_axes()[0].set_ylim((0, 50))
 
     fig.savefig(OUTPUT_PATH / "group_tercile_centering_bars.png", bbox_inches='tight')
     plt.close()
@@ -192,8 +193,8 @@ def gen_group_figures(
     fig = plt.figure(figsize=(6, 4), dpi=DPI)
     figure.group_pitch_distributions(trimmed_dataset, fig, plot_settings | {
         "colormap": {
-            "Ending Pitch (Cents)": "darkgreen",
-            "Starting Pitch (Cents)": "violet"
+            "Ending Pitch (Cents)": "salmon",
+            "Starting Pitch (Cents)": "brown"
         }
     })
 
@@ -219,8 +220,8 @@ def gen_group_figures(
 
     figure.group_pitch_distributions(trimmed_dataset, fig, plot_settings | {
         "colormap": {
-            "Ending Pitch (Cents)": "darkgreen",
-            "Starting Pitch (Cents)": "violet"
+            "Ending Pitch (Cents)": "salmon",
+            "Starting Pitch (Cents)": "brown"
         },
     }, smooth_on=True)
 
@@ -236,12 +237,12 @@ def gen_group_figures(
                                   # override the plotting settings here
                                   "colormap": {
                                       "Controls": {
-                                          "LOWER": "lightcoral",
-                                          "UPPER": "brown"
+                                          "LOWER": "navajowhite",
+                                          "UPPER": "darkorange"
                                       },
                                       "LD Patients": {
-                                          "LOWER": "mediumturquoise",
-                                          "UPPER": "darkcyan"
+                                          "LOWER": "cornflowerblue",
+                                          "UPPER": "midnightblue"
                                       }
                                   },
                                   "label_alias": {
@@ -432,8 +433,8 @@ def gen_subject_figures(
                     # override the plotting settings here
                     "colormap": {
                         "Controls": {
-                            "LOWER": "lightcoral",
-                            "UPPER": "brown"
+                            "LOWER": "navajowhite",
+                            "UPPER": "darkorange"
                         },
                         "LD Patients": {
                             "LOWER": "mediumturquoise",
