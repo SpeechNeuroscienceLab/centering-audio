@@ -49,8 +49,8 @@ def gen_centering_csv(
             subject_data["Starting Pitch (Cents)"] = np.mean(subject.trials_cents[:, initial_index], axis=1)
             subject_data["Ending Pitch (Cents)"] = np.mean(subject.trials_cents[:, midtrial_index], axis=1)
 
-            subject_data["Centering (Cents)"] = np.abs(
-                subject_data["Ending Pitch (Cents)"] - subject_data["Starting Pitch (Cents)"])
+            subject_data["Centering (Cents)"] = np.abs(subject_data["Starting Pitch (Cents)"]) - np.abs(subject_data["Ending Pitch (Cents)"])
+
             subject_data["Group Name"] = cohort_name
             subject_data["Subject Name"] = subject.name
 
