@@ -160,12 +160,12 @@ def gen_group_figures(
                                   # override the plotting settings here
                                   "colormap": {
                                       "Controls": {
-                                          "LOWER": "navajowhite",
-                                          "UPPER": "darkorange"
+                                          "LOWER": "lightcoral",
+                                          "UPPER": "brown"
                                       },
                                       "LD Patients": {
-                                          "LOWER": "cornflowerblue",
-                                          "UPPER": "midnightblue"
+                                          "LOWER": "mediumturquoise",
+                                          "UPPER": "darkcyan"
                                       }
                                   },
                                   "label_alias": {
@@ -242,7 +242,7 @@ def gen_group_figures(
                                       },
                                       "LD Patients": {
                                           "LOWER": "cornflowerblue",
-                                          "UPPER": "midnightblue"
+                                          "UPPER": "lightblue"
                                       }
                                   },
                                   "label_alias": {
