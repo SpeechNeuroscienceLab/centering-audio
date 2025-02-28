@@ -255,50 +255,45 @@ def group_subject_centering_overshoot_bars(dataset: pd.DataFrame, figure: plt.Fi
         axis = axes[i]
 
         plot_height = []
-        plot_err = []
+        # TODO: error bars?
+        plot_err = [[0 for _ in range(4)] for _ in range(len(group_data[subject_column].unique()))]
 
         for subject in group_data[subject_column].unique():
             subject_data = group_data[group_data[subject_column] == subject]
             centering_class = np.zeros_like(subject_data[centering_column])
-            centering_class[subject_data[centering_column] > 0] = 1  # positive centering
-            centering_class[(subject_data[centering_column] < 0) & (0 < subject_data[movement_column])] = 0  # overshoot
-            centering_class[
-                (subject_data[centering_column] < 0) & (subject_data[movement_column] < 0)] = -1  #anticentering
 
-            positive_trials = subject_data[centering_class == 1]
-            overshoot_trials = subject_data[centering_class == 0]
-            negative_trials = subject_data[centering_class == -1]
+            centering_class[subject_data[centering_column] >= 0] = 1  # centering
+            centering_class[subject_data[centering_column] < 0] = 2  #anticentering
+            centering_class[np.logical_and(subject_data[centering_column] > 0, np.abs(subject_data[movement_column]) > np.abs(subject_data[centering_column]))] = 3 # centering + overshoot
+            centering_class[np.logical_and(subject_data[centering_column] < 0, subject_data[movement_column] > 0)] = 4 # anticentering + overshoot
+
+            data_by_class = [subject_data[np.logical_or(centering_class == 1, centering_class == 3)],
+                             subject_data[np.logical_or(centering_class == 2, centering_class == 4)],
+                             subject_data[centering_class == 3],
+                             subject_data[centering_class == 4]]
 
             # divide by zero fix
-            trial_percentages = [x if x != 0 else -1 for x in [
-                positive_trials.shape[0] / subject_data.shape[0],
-                overshoot_trials.shape[0] / subject_data.shape[0],
-                negative_trials.shape[0] / subject_data.shape[0]
-            ]]
+            trial_percentages = np.array([
+                class_data.shape[0] / subject_data.shape[0] for class_data in data_by_class
+            ])
 
-            plot_height.append([0 if np.isnan(x) else x for x in [
-                np.mean(positive_trials[centering_column]) * trial_percentages[0],
-                np.mean((overshoot_trials[movement_column] - overshoot_trials[centering_column]) / 2) *
-                trial_percentages[1],
-                np.mean(-negative_trials[centering_column]) * trial_percentages[2]
-            ]])
-
-            plot_err.append((0, 0, 0
-                             # standard_error(positive_trials[centering_column] * trial_percentages[0]),
-                             # standard_error(
-                             #     (overshoot_trials[movement_column] - overshoot_trials[centering_column]) / trial_percentages[1]),
-                             # standard_error(negative_trials[centering_column] / trial_percentages[2])
-                             ))
+            plot_height.append(np.array([0 if np.isnan(x) else x for x in [
+                np.abs(np.mean(class_data[centering_column])) for class_data in data_by_class
+            ]]))
 
         # plot the triples
-        axis.bar(np.arange(len(plot_height)) * 2, [x[0] for x in plot_height], yerr=[x[0] for x in plot_err],
+        spacing = 5
+        relative_spacing = 1
+        axis.bar(np.arange(len(plot_height)) * spacing, [x[0] for x in plot_height], yerr=[x[0] for x in plot_err],
                  label="Mean Centering", color="green", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * 2 + 0.2, [x[2] for x in plot_height], yerr=[x[2] for x in plot_err],
+        axis.bar(np.arange(len(plot_height)) * spacing + relative_spacing, [x[1] for x in plot_height], yerr=[x[2] for x in plot_err],
                  label="Mean Anticentering", color="red", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * 2 + 0.4, [x[1] for x in plot_height], yerr=[x[1] for x in plot_err],
-                 label="Mean Overshoot", color="violet", alpha=0.75)
+        axis.bar(np.arange(len(plot_height)) * spacing + 2*relative_spacing, [x[2] for x in plot_height], yerr=[x[1] for x in plot_err],
+                 label="Mean Overshoot Centering", color="teal", alpha=0.75)
+        axis.bar(np.arange(len(plot_height)) * spacing + 3*relative_spacing, [x[3] for x in plot_height], yerr=[x[1] for x in plot_err],
+                 label="Mean Overshoot Anticentering", color="purple", alpha=0.75)
 
-        axis.set_xticks(ticks=np.arange(len(plot_height)) * 2)
+        axis.set_xticks(ticks=np.arange(len(plot_height)) * spacing)
         axis.set_xticklabels(np.arange(len(plot_height)) + 1)
 
         axis.set_xlabel(group)
