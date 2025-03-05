@@ -264,8 +264,11 @@ def group_subject_centering_overshoot_bars(dataset: pd.DataFrame, figure: plt.Fi
 
             centering_class[subject_data[centering_column] >= 0] = 1  # centering
             centering_class[subject_data[centering_column] < 0] = 2  #anticentering
-            centering_class[np.logical_and(subject_data[centering_column] > 0, np.abs(subject_data[movement_column]) > np.abs(subject_data[centering_column]))] = 3 # centering + overshoot
-            centering_class[np.logical_and(subject_data[centering_column] < 0, subject_data[movement_column] > 0)] = 4 # anticentering + overshoot
+            centering_class[np.logical_and(subject_data[centering_column] > 0,
+                                           np.abs(subject_data[movement_column]) > np.abs(
+                                               subject_data[centering_column]))] = 3  # centering + overshoot
+            centering_class[np.logical_and(subject_data[centering_column] < 0,
+                                           subject_data[movement_column] > 0)] = 4  # anticentering + overshoot
 
             data_by_class = [subject_data[np.logical_or(centering_class == 1, centering_class == 3)],
                              subject_data[np.logical_or(centering_class == 2, centering_class == 4)],
@@ -286,11 +289,14 @@ def group_subject_centering_overshoot_bars(dataset: pd.DataFrame, figure: plt.Fi
         relative_spacing = 1
         axis.bar(np.arange(len(plot_height)) * spacing, [x[0] for x in plot_height], yerr=[x[0] for x in plot_err],
                  label="Mean Centering", color="green", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * spacing + relative_spacing, [x[1] for x in plot_height], yerr=[x[2] for x in plot_err],
+        axis.bar(np.arange(len(plot_height)) * spacing + relative_spacing, [x[1] for x in plot_height],
+                 yerr=[x[2] for x in plot_err],
                  label="Mean Anticentering", color="red", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * spacing + 2*relative_spacing, [x[2] for x in plot_height], yerr=[x[1] for x in plot_err],
+        axis.bar(np.arange(len(plot_height)) * spacing + 2 * relative_spacing, [x[2] for x in plot_height],
+                 yerr=[x[1] for x in plot_err],
                  label="Mean Overshoot Centering", color="teal", alpha=0.75)
-        axis.bar(np.arange(len(plot_height)) * spacing + 3*relative_spacing, [x[3] for x in plot_height], yerr=[x[1] for x in plot_err],
+        axis.bar(np.arange(len(plot_height)) * spacing + 3 * relative_spacing, [x[3] for x in plot_height],
+                 yerr=[x[1] for x in plot_err],
                  label="Mean Overshoot Anticentering", color="purple", alpha=0.75)
 
         axis.set_xticks(ticks=np.arange(len(plot_height)) * spacing)
@@ -454,7 +460,7 @@ def group_smooth_centering_distribution(dataset: pd.DataFrame, figure: plt.Figur
 
 
 def draw_triangle(axis, x, start, end, width=0.5, color="black", alpha=0.5):
-    axis.fill([x, x + width/2, x - width/2], [end, start, start],
+    axis.fill([x, x + width / 2, x - width / 2], [end, start, start],
               color=color, lw=2, alpha=alpha)
 
 
@@ -464,7 +470,6 @@ def group_arrow_distribution(dataset: pd.DataFrame,
                              groups: tuple,
                              group_column="Group Name",
                              title=None):
-
     axes = figure.get_axes()
 
     for i, group in enumerate(groups):
@@ -498,3 +503,45 @@ def group_arrow_distribution(dataset: pd.DataFrame,
             axis.set_ylabel("Pitch (cents)")
 
         axis.set_title(group)
+
+
+def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
+                           figure: plt.Figure,
+                           plot_settings: dict,
+                           groups: tuple,
+                        group_column="Group Name",
+                           subgroup_column="Tercile",
+                           pitch_column="Starting Pitch (Cents)",
+                           ):
+    labels = []
+    heights = []
+    errors = []
+    colors = []
+
+    for group in groups:
+        group_data = dataset[dataset[group_column] == group]
+        print(f"Group: {group} has {group_data.shape[0]} rows")
+        for subgroup in np.sort(group_data[subgroup_column].unique()):
+            print(f"Subgroup: {subgroup} has {group_data[group_data[subgroup_column] == subgroup].shape[0]} rows")
+            subgroup_data = group_data[group_data[subgroup_column] == subgroup]
+            heights.append(np.mean(np.abs(subgroup_data[pitch_column])))
+            errors.append(standard_error(subgroup_data[pitch_column]))
+            labels.append(f"{group}\n{subgroup}")
+            colors.append(plot_settings["colormap"][group][subgroup])
+
+    axis = figure.get_axes()[0]
+
+    x_pos = np.arange(len(labels))
+
+    axis.set_title(f"{pitch_column} Magnitude Comparison")
+
+    axis.scatter(x=x_pos, y=heights, color=colors, zorder=2, s=250, marker='h',
+                 edgecolors=plot_settings["error-color"])
+
+    axis.errorbar(x=x_pos, y=heights, yerr=errors, color=plot_settings["error-color"], zorder=1,
+                  elinewidth=plot_settings["line-width"],
+                  capthick=plot_settings["line-width"],
+                  capsize=plot_settings["error-cap-size"],
+                  ls=plot_settings["error-line-style"])
+    axis.set_xticks(x_pos)
+    axis.set_xticklabels(labels)
