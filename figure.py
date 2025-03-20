@@ -11,14 +11,14 @@ from matplotlib.markers import TICKDOWN
 import analysis
 from subject_analysis import Dataset
 
-
 def standard_error(data):
     return np.std(data, ddof=1) / np.sqrt(np.size(data))
 
 
 def mark_significance_bar(dataset: pd.DataFrame, figure: plt.Figure, pairs, plot_settings: dict, height=0.0,
                           display_string="*",
-                          group_column="Group Name"):
+                          group_column="Group Name",
+                          pair_column="Tercile"):
     # default to the first axes
     axes = figure.get_axes()[0]
 
@@ -29,18 +29,18 @@ def mark_significance_bar(dataset: pd.DataFrame, figure: plt.Figure, pairs, plot
     for group in plot_settings["plot_order"]:
         group_data = dataset[dataset[group_column] == group]
 
-        for tercile in sorted(group_data["Tercile"].unique()):
+        for tercile in sorted(group_data[pair_column].unique()):
             xpos.append(prev)
             prev += plot_settings["bar_spacing"]
             plot_indices[(group, tercile)] = xpos[-1]  # position of each group/tercile combination
         prev += plot_settings["group_spacing"]
 
-    __significance_bar(axes, plot_indices[pairs[0]], plot_indices[pairs[1]], max(axes.get_ylim()) + height,
-                       display_string=display_string)
+    significance_bar(axes, plot_indices[pairs[0]], plot_indices[pairs[1]], max(axes.get_ylim()) + height,
+                     display_string=display_string)
 
 
-def __significance_bar(axes: plt.Axes, start, end, height, display_string,
-                       line_width=1.5, marker_size=8, box_pad=0.3, fontsize=15, color='k'):
+def significance_bar(axes: plt.Axes, start, end, height, display_string,
+                     line_width=1.5, marker_size=8, box_pad=0.3, fontsize=15, color='k'):
     axes.plot([start, end], [height] * 2, '-',
               color=color, lw=line_width, marker=TICKDOWN, markeredgewidth=line_width, markersize=marker_size)
     # draw the text with a bounding box covering up the line
@@ -506,13 +506,14 @@ def group_arrow_distribution(dataset: pd.DataFrame,
 
 
 def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
-                           figure: plt.Figure,
-                           plot_settings: dict,
-                           groups: tuple,
-                        group_column="Group Name",
-                           subgroup_column="Tercile",
-                           pitch_column="Starting Pitch (Cents)",
-                           ):
+                                     figure: plt.Figure,
+                                     plot_settings: dict,
+                                     groups: tuple,
+                                     group_column="Group Name",
+                                     subgroup_column="Tercile",
+                                     pitch_column="Starting Pitch (Cents)",
+                                     label_map={}
+                                     ):
     labels = []
     heights = []
     errors = []
@@ -520,13 +521,14 @@ def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
 
     for group in groups:
         group_data = dataset[dataset[group_column] == group]
-        print(f"Group: {group} has {group_data.shape[0]} rows")
         for subgroup in np.sort(group_data[subgroup_column].unique()):
-            print(f"Subgroup: {subgroup} has {group_data[group_data[subgroup_column] == subgroup].shape[0]} rows")
             subgroup_data = group_data[group_data[subgroup_column] == subgroup]
             heights.append(np.mean(np.abs(subgroup_data[pitch_column])))
             errors.append(standard_error(subgroup_data[pitch_column]))
-            labels.append(f"{group}\n{subgroup}")
+            if (group, subgroup) not in label_map:
+                labels.append(f"{group}\n{subgroup}")
+            else:
+                labels.append(label_map[(group, subgroup)])
             colors.append(plot_settings["colormap"][group][subgroup])
 
     axis = figure.get_axes()[0]
@@ -545,3 +547,9 @@ def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
                   ls=plot_settings["error-line-style"])
     axis.set_xticks(x_pos)
     axis.set_xticklabels(labels)
+
+    # Remove the left and top spines
+    axis.spines['right'].set_visible(False)
+
+    axis.spines['top'].set_visible(False)
+
