@@ -2,7 +2,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib import patches as mpatches
 from matplotlib.legend_handler import HandlerTuple
-from matplotlib import gridspec
+import matplotlib.colors
 import numpy as np
 from scipy import signal
 
@@ -10,6 +10,7 @@ from matplotlib.markers import TICKDOWN
 
 import analysis
 from subject_analysis import Dataset
+
 
 def standard_error(data):
     return np.std(data, ddof=1) / np.sqrt(np.size(data))
@@ -44,12 +45,115 @@ def significance_bar(axes: plt.Axes, start, end, height, display_string,
     axes.plot([start, end], [height] * 2, '-',
               color=color, lw=line_width, marker=TICKDOWN, markeredgewidth=line_width, markersize=marker_size)
     # draw the text with a bounding box covering up the line
-    axes.text(0.5 * (start + end), height, display_string, ha='center', va='center',
+    axes.text(0.5 * (start + end), height - 0.25, display_string, ha='center', va='center',
               bbox=dict(facecolor='1.', edgecolor='none', boxstyle='Square,pad=' + str(box_pad)), size=fontsize)
 
 
+def lighten_color(color, factor=0.5):
+    return [(1 - factor) * c + factor for c in color]
+
+
+def group_stacked_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings: dict,
+                       group_column="Centering Class", subgroup_column="Group Name",
+                       stack_column="Overshoot",
+                       legend_loc="upper left",
+                       text_offset=0,
+                       counts=False):
+    axes = figure.get_axes()[0]
+
+    plot_data = []
+    labels = []
+    xpos = []
+    prev = 0.0
+
+    for group in plot_settings["plot_order"]:
+        group_data = dataset[dataset[group_column] == group]
+
+        for subgroup in sorted(group_data[subgroup_column].unique()):
+            subgroup_data = group_data[group_data[subgroup_column] == subgroup]
+            stack_data = subgroup_data[subgroup_data[stack_column]]
+
+            plot_data.append({
+                "group": group,
+                "subgroup": subgroup,
+                "height": subgroup_data.shape[0] if counts else
+                np.round(subgroup_data.shape[0]/dataset[dataset[subgroup_column] == subgroup].shape[0] * 100, 1),  # height is the count
+                "color": plot_settings["colormap"][subgroup],
+                "alpha": 1
+            })
+
+            plot_data.append({
+                "group": group,
+                "subgroup": subgroup,
+                "height": stack_data.shape[0] if counts else
+                np.round(stack_data.shape[0]/dataset[dataset[subgroup_column] == subgroup].shape[0] * 100, 1),  # height is the count
+                "color": lighten_color(plot_settings["colormap"][subgroup], -1),
+                "alpha": 1
+            })
+
+            xpos += [prev] * 2
+            prev += plot_settings["bar_spacing"]
+            labels += [f"{subgroup}\n{group}"]
+
+        prev += plot_settings["group_spacing"]
+
+    for i in range(0, len(plot_data), 2):
+        axes.bar(x=xpos[i],
+                 height=plot_data[i]["height"],
+                 color=plot_data[i]["color"],
+                 alpha=plot_data[i]["alpha"],
+                 edgecolor='black',
+                 )
+        axes.text(x=xpos[i],
+                  # y=(plot_data[i]["height"] - plot_data[i + 1]["height"]) / 2 + plot_data[i + 1]["height"],
+                  y=plot_data[i]["height"] + text_offset,
+                  s=f"{plot_data[i]['height']}{'%' if not counts else ''}",
+                  ha='center',
+                  va='center',
+                  color='black',
+                  fontsize=plot_settings["font_size"])
+        axes.bar(x=xpos[i + 1],
+                 height=plot_data[i + 1]["height"],
+                 color=plot_data[i + 1]["color"],
+                 alpha=plot_data[i + 1]["alpha"],
+                 edgecolor='black',
+                 )
+        axes.text(x=xpos[i + 1],
+                  y=plot_data[i + 1]["height"] / 2,
+                  s=f"{plot_data[i + 1]['height']}{'%' if not counts else ''}\n{stack_column}",
+                  ha='center',
+                  va='center',
+                  color='black',
+                  fontsize=plot_settings["font_size"])
+
+    axes.set_xticks(ticks=xpos[::2])
+    axes.set_xticklabels(labels, rotation=0, ha="center")
+    axes.tick_params(axis='x', length=0)
+    axes.set_ylabel("Count" if counts else "Percentage of Trials (%)")
+
+    # remove the top and right spines
+    axes.spines['right'].set_visible(False)
+    axes.spines['top'].set_visible(False)
+
+    legend_dict = plot_settings["colormap"]
+    patches = []
+    for cat, col in legend_dict.items():
+        patches.append(
+            [mpatches.Patch(facecolor=(*col, 1), edgecolor='black', label=cat),
+             mpatches.Patch(facecolor=(*lighten_color(col, -1), 1), edgecolor='black', label=cat)])
+
+    axes.legend(handles=patches,
+                labels=plot_settings["colormap"],
+                frameon=False,
+                loc=legend_loc,
+                handler_map={list: HandlerTuple(None)},
+                prop={'size': plot_settings["font_size"]},
+                )
+
+
 def group_tercile_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings: dict,
-                       group_column="Group Name", quantity_column="Centering (Cents)"):
+                       group_column="Group Name", quantity_column="Centering (Cents)",
+                       legend_loc="upper left"):
     # same approach as before: precompute attributes before assembly
     # default to the first axes
     axes = figure.get_axes()[0]
@@ -90,6 +194,10 @@ def group_tercile_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings:
     axes.tick_params(axis='x', length=0)
     axes.set_ylabel(quantity_column)
 
+    # remove the top and right spines
+    axes.spines['right'].set_visible(False)
+    axes.spines['top'].set_visible(False)
+
     axes.errorbar(x=xpos,
                   y=[bar["height"] for bar in plot_data],
                   yerr=[bar["error"] for bar in plot_data],
@@ -108,7 +216,7 @@ def group_tercile_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings:
     axes.legend(handles=patches,
                 labels=plot_settings["plot_order"],
                 frameon=False,
-                loc="upper left",
+                loc=legend_loc,
                 handler_map={list: HandlerTuple(None)},
                 prop={'size': 12},
                 )
@@ -552,4 +660,3 @@ def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
     axis.spines['right'].set_visible(False)
 
     axis.spines['top'].set_visible(False)
-
