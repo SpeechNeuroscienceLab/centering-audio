@@ -77,7 +77,8 @@ def group_stacked_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings:
                 "group": group,
                 "subgroup": subgroup,
                 "height": subgroup_data.shape[0] if counts else
-                np.round(subgroup_data.shape[0]/dataset[dataset[subgroup_column] == subgroup].shape[0] * 100, 1),  # height is the count
+                np.round(subgroup_data.shape[0] / dataset[dataset[subgroup_column] == subgroup].shape[0] * 100, 1),
+                # height is the count
                 "color": plot_settings["colormap"][subgroup],
                 "alpha": 1
             })
@@ -86,9 +87,10 @@ def group_stacked_bars(dataset: pd.DataFrame, figure: plt.Figure, plot_settings:
                 "group": group,
                 "subgroup": subgroup,
                 "height": stack_data.shape[0] if counts else
-                np.round(stack_data.shape[0]/dataset[dataset[subgroup_column] == subgroup].shape[0] * 100, 1),  # height is the count
+                np.round(stack_data.shape[0] / dataset[dataset[subgroup_column] == subgroup].shape[0] * 100, 1),
+                # height is the count
                 "color": lighten_color(plot_settings["colormap"][subgroup], -1),
-                "alpha": 1
+                "alpha": 0.7
             })
 
             xpos += [prev] * 2
@@ -627,9 +629,12 @@ def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
     errors = []
     colors = []
 
+    legend_labels = []
+
     for group in groups:
         group_data = dataset[dataset[group_column] == group]
         for subgroup in np.sort(group_data[subgroup_column].unique()):
+            legend_labels.append(group)
             subgroup_data = group_data[group_data[subgroup_column] == subgroup]
             heights.append(np.mean(np.abs(subgroup_data[pitch_column])))
             errors.append(standard_error(subgroup_data[pitch_column]))
@@ -660,3 +665,18 @@ def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
     axis.spines['right'].set_visible(False)
 
     axis.spines['top'].set_visible(False)
+
+    # set up legend
+    patches = []
+
+    for group in groups:
+        color_group = []
+        for _ in range(len(np.sort(dataset[dataset[group_column] == group][subgroup_column].unique()))):
+            color_group.append(mpatches.Patch(facecolor=colors.pop(0), edgecolor='black'))
+        patches.append(color_group)
+    axis.legend(handles=patches,
+                labels=groups,
+                frameon=False,
+                loc="upper right",
+                handler_map={list: HandlerTuple(None)},
+                prop={'size': 12})
