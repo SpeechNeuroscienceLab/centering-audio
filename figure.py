@@ -1,6 +1,8 @@
 import pandas as pd
-from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt, figure
 from matplotlib import patches as mpatches
+from matplotlib import collections as mcollections
+from matplotlib import patheffects as mpatheffects
 from matplotlib.legend_handler import HandlerTuple
 import matplotlib.colors
 import numpy as np
@@ -680,3 +682,233 @@ def group_pitch_magnitude_comparison(dataset: pd.DataFrame,
                 loc="upper right",
                 handler_map={list: HandlerTuple(None)},
                 prop={'size': 12})
+
+
+def CurvedRectangle(
+        axis: plt.Axes,
+        position,
+        width, height,
+        linewidth=1,
+        edgecolor='black',
+        facecolor='white',
+        border_radius=(0, 0),
+        fill_alpha=1.,
+        stroke_alpha=1.,
+        hatch=None,
+        label=None
+):
+    # draw the inner rectangle without stroke first
+    x, y = position
+
+    patches = []
+
+    # fill corner arcs
+    corners = [(x + width - border_radius[0], y + height - border_radius[1]),
+               (x + border_radius[0], y + height - border_radius[1]),
+               (x + border_radius[0], y + border_radius[1]),
+               (x + width - border_radius[0], y + border_radius[1])]
+
+    angles = [(0, 90),
+              (90, 180),
+              (180, 270),
+              (270, 360)]
+
+    for corner, angle in zip(corners, angles):
+        patches.append(
+            mpatches.Arc((corner[0], corner[1]),
+                         border_radius[0] * 2, border_radius[1] * 2,
+                         theta1=angle[0], theta2=angle[1],
+                         linewidth=linewidth,
+                         edgecolor=edgecolor,
+                         alpha=stroke_alpha,
+                         sketch_params=0.2)
+        )
+
+    curves = mcollections.PatchCollection(patches,
+                                          facecolors=facecolor,
+                                          linewidths=0,
+                                          alpha=fill_alpha)
+    if hatch is not None:
+        curves.set_hatch(hatch)
+    axis.add_collection(curves)
+
+    for arc in patches:
+        axis.add_patch(arc)
+
+    line_segments = np.array([
+        [[x + border_radius[0], y + height], [x + width - border_radius[0], y + height]],
+        [[x + border_radius[0], y], [x + width - border_radius[0], y]],
+        [[x + width, y + border_radius[1]], [x + width, y + height - border_radius[1]]],
+        [[x, y + border_radius[1]], [x, y + height - border_radius[1]]],
+
+    ])
+
+    def __build_convex_polygon(pp):
+        cent = (sum([p[0] for p in pp]) / len(pp), sum([p[1] for p in pp]) / len(pp))
+        # sort by polar angle
+        points = pp.tolist()
+        points.sort(key=lambda p: np.arctan2(p[1] - cent[1], p[0] - cent[0]))
+        return points
+
+    for segment in line_segments:
+        plt.plot(segment[:, 0], segment[:, 1],
+                 color=edgecolor,
+                 linewidth=linewidth,
+                 alpha=stroke_alpha)
+
+    octagon = mpatches.Polygon(
+        __build_convex_polygon(line_segments.reshape((-1, 2))),
+        facecolor=facecolor,
+        alpha=fill_alpha
+    )
+
+    if hatch is not None:
+        octagon.set_hatch(hatch)
+
+    axis.add_patch(
+        octagon
+    )
+
+
+
+def group_class_percentage_comparison(dataset: pd.DataFrame,
+                                      figure: plt.Figure,
+                                      plot_settings: dict,
+                                      group_column="Group Name",
+                                      primary_column="Centering Class",
+                                      boolean_column="Overshoot"):
+    border_radius = plot_settings['border_radius']
+
+    axis = figure.get_axes()[0]
+
+    legend_colors = []
+    legend_labels = []
+
+    for group_idx, group in enumerate(plot_settings["plot_order"]):
+        group_data = dataset[dataset[group_column] == group]
+
+        legend_colors.append([])
+
+        cdf = 0
+
+        subgroups = np.sort(group_data[primary_column].unique())[::-1]
+
+        for subgroup_idx, subgroup in enumerate(subgroups):
+            subgroup_data = group_data[group_data[primary_column] == subgroup]
+            subgroup_percentage = (subgroup_data.shape[0] / group_data.shape[0]) * 100
+
+            CurvedRectangle(
+                axis,
+                (cdf, group_idx * (1 + plot_settings["group_spacing"])),
+                width=subgroup_percentage,
+                height=1,
+                linewidth=1,
+                edgecolor='black',
+                facecolor=plot_settings["colormap"][group][subgroup],
+                border_radius=border_radius,
+                fill_alpha=plot_settings["opacity"]["primary"],
+                stroke_alpha=1,
+                label=group if subgroup_idx == 0 else None
+            )
+
+            axis.text(
+                np.mean([cdf, cdf + subgroup_percentage]),
+                group_idx * (1 + plot_settings["group_spacing"]) + 1 + plot_settings["text_spacing"],
+                f"{subgroup}: {int(subgroup_percentage)}%",
+                horizontalalignment='center',
+                verticalalignment='bottom',
+            )
+
+            legend_colors[group_idx].append(mpatches.Patch(
+                    facecolor=plot_settings["colormap"][group][subgroup],
+                    edgecolor='k'
+                ))
+
+            boolean_data = subgroup_data[subgroup_data[boolean_column]]
+            boolean_percentage = boolean_data.shape[0] / group_data.shape[0] * 100
+
+            if subgroup_idx < subgroups.shape[0] / 2:
+                CurvedRectangle(
+                    axis,
+                    (cdf + subgroup_percentage - boolean_percentage, group_idx * (1 + plot_settings["group_spacing"])),
+                    width=boolean_percentage,
+                    height=1,
+                    linewidth=1,
+                    edgecolor='black',
+                    facecolor='gray',
+                    border_radius=border_radius,
+                    fill_alpha=plot_settings["opacity"]["secondary"],
+                    stroke_alpha=1,
+                    hatch=plot_settings["secondary_hatch"]
+                )
+
+                text = axis.text(
+                    np.mean([cdf + subgroup_percentage - boolean_percentage, cdf + subgroup_percentage]),
+                    group_idx * (1 + plot_settings["group_spacing"]) + 0.5,
+                    f"{int(boolean_percentage)}%",
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                )
+                text.set_path_effects([
+                    mpatheffects.withStroke(linewidth=3, foreground="white"),
+                    mpatheffects.withStroke(linewidth=3, foreground=plot_settings["colormap"][group][subgroup],
+                                            alpha=plot_settings["opacity"]["primary"]),
+                    mpatheffects.withStroke(linewidth=3, foreground="gray",
+                                            alpha=plot_settings["opacity"]["secondary"]),
+                    mpatheffects.Normal()
+                ])
+            else:
+                CurvedRectangle(
+                    axis,
+                    (cdf, group_idx * (1 + plot_settings["group_spacing"])),
+                    width=boolean_percentage,
+                    height=1,
+                    linewidth=1,
+                    edgecolor='black',
+                    facecolor='gray',
+                    border_radius=border_radius,
+                    fill_alpha=plot_settings["opacity"]["secondary"],
+                    stroke_alpha=1,
+                    hatch=plot_settings["secondary_hatch"]
+                )
+
+                text = axis.text(
+                    np.mean([cdf, cdf + boolean_percentage]),
+                    group_idx * (1 + plot_settings["group_spacing"]) + 0.5,
+                    f"{int(boolean_percentage)}%",
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                )
+                text.set_path_effects([
+                    mpatheffects.withStroke(linewidth=3, foreground="white"),
+                    mpatheffects.withStroke(linewidth=3, foreground=plot_settings["colormap"][group][subgroup],
+                                            alpha=plot_settings["opacity"]["primary"]),
+                    mpatheffects.withStroke(linewidth=3, foreground="gray",
+                                            alpha=plot_settings["opacity"]["secondary"]),
+                    mpatheffects.Normal()
+                ])
+
+            cdf += subgroup_percentage
+
+    legend_colors.append(
+        mpatches.Patch(
+            facecolor="white",
+            edgecolor="black",
+            hatch=plot_settings["secondary_hatch"],
+        )
+    )
+
+    axis.legend(handles=legend_colors,
+                labels=plot_settings["plot_order"] + ["Overshoot"],
+                frameon=False,
+                loc="upper right",
+                handler_map={list: HandlerTuple(None)},
+                prop={'size': 12},
+                ncol=3)
+
+    axis.set_yticks([])
+    axis.set_yticklabels([])
+
+    # Remove the right and top spines
+    axis.spines['right'].set_visible(False)
+    axis.spines['top'].set_visible(False)
