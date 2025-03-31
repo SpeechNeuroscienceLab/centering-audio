@@ -311,7 +311,8 @@ def gen_subject_figures(
         CACHE_PATH,
         OUTPUT_PATH,
         plot_settings,
-        DPI
+        DPI,
+        cohorts=["Controls", "Patients"]
 ):
     start_time = time.time()
     ld = dataset
@@ -338,8 +339,7 @@ def gen_subject_figures(
             fig.savefig(OUTPUT_PATH / f"raw/{tercile}_{subject_id}_centering_quiver.png", bbox_inches='tight')
             plt.close()
 
-    for cohort_name in []:
-        # for cohort_name in ["Patients", "Controls"]:
+    for cohort_name in cohorts:
         for subject_index, _ in enumerate(ld.cohorts[cohort_name].subjects):
             print(f"Plotting {cohort_name} #{subject_index + 1}")
 
