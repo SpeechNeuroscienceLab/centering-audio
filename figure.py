@@ -814,7 +814,7 @@ def group_class_percentage_comparison(dataset: pd.DataFrame,
             axis.text(
                 np.mean([cdf, cdf + subgroup_percentage]),
                 group_idx * (1 + plot_settings["group_spacing"]) + 1 + plot_settings["text_spacing"],
-                f"{subgroup}: {int(subgroup_percentage)}%",
+                f"{subgroup}: {np.round(subgroup_percentage, 2)}%",
                 horizontalalignment='center',
                 verticalalignment='bottom',
             )
@@ -845,7 +845,7 @@ def group_class_percentage_comparison(dataset: pd.DataFrame,
                 text = axis.text(
                     np.mean([cdf + subgroup_percentage - boolean_percentage, cdf + subgroup_percentage]),
                     group_idx * (1 + plot_settings["group_spacing"]) + 0.5,
-                    f"{int(boolean_percentage)}%",
+                    f"{np.round(boolean_percentage, 2)}%",
                     horizontalalignment='center',
                     verticalalignment='center',
                 )
@@ -875,7 +875,7 @@ def group_class_percentage_comparison(dataset: pd.DataFrame,
                 text = axis.text(
                     np.mean([cdf, cdf + boolean_percentage]),
                     group_idx * (1 + plot_settings["group_spacing"]) + 0.5,
-                    f"{int(boolean_percentage)}%",
+                    f"{np.round(boolean_percentage, 2)}%",
                     horizontalalignment='center',
                     verticalalignment='center',
                 )
