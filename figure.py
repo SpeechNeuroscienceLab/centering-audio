@@ -11,7 +11,7 @@ from scipy import signal
 from matplotlib.markers import TICKDOWN
 
 import analysis
-from subject_analysis import Dataset
+from subject_analysis import Subject
 
 
 def standard_error(data):
@@ -324,7 +324,7 @@ def group_subject_overshoot_stacked_bars(dataset: pd.DataFrame, figure: plt.Figu
             centering_class[subject_data[centering_column] > 0] = 1  # positive centering
             centering_class[(subject_data[centering_column] < 0) & (0 < subject_data[movement_column])] = 0  # overshoot
             centering_class[
-                (subject_data[centering_column] < 0) & (subject_data[movement_column] < 0)] = -1  #anticentering
+                (subject_data[centering_column] < 0) & (subject_data[movement_column] < 0)] = -1  # anticentering
 
             # divide by zero fix
             trial_percentages = np.array([
@@ -375,7 +375,7 @@ def group_subject_centering_overshoot_bars(dataset: pd.DataFrame, figure: plt.Fi
             centering_class = np.zeros_like(subject_data[centering_column])
 
             centering_class[subject_data[centering_column] >= 0] = 1  # centering
-            centering_class[subject_data[centering_column] < 0] = 2  #anticentering
+            centering_class[subject_data[centering_column] < 0] = 2  # anticentering
             centering_class[np.logical_and(subject_data[centering_column] > 0,
                                            np.abs(subject_data[movement_column]) > np.abs(
                                                subject_data[centering_column]))] = 3  # centering + overshoot
@@ -770,7 +770,6 @@ def CurvedRectangle(
     )
 
 
-
 def group_class_percentage_comparison(dataset: pd.DataFrame,
                                       figure: plt.Figure,
                                       plot_settings: dict,
@@ -820,9 +819,9 @@ def group_class_percentage_comparison(dataset: pd.DataFrame,
             )
 
             legend_colors[group_idx].append(mpatches.Patch(
-                    facecolor=plot_settings["colormap"][group][subgroup],
-                    edgecolor='k'
-                ))
+                facecolor=plot_settings["colormap"][group][subgroup],
+                edgecolor='k'
+            ))
 
             boolean_data = subgroup_data[subgroup_data[boolean_column]]
             boolean_percentage = boolean_data.shape[0] / group_data.shape[0] * 100
@@ -912,3 +911,49 @@ def group_class_percentage_comparison(dataset: pd.DataFrame,
     # Remove the right and top spines
     axis.spines['right'].set_visible(False)
     axis.spines['top'].set_visible(False)
+
+
+def subject_pitch_tracks(subject: Subject,
+                         figure: plt.Figure,
+                         plot_settings: dict):
+    subject.trials_cents = analysis.cents(subject.trials)
+    tercile_vector = analysis.compute_trial_tercile_vector(subject.taxis, subject.trials)
+
+    # split rows of trials_cents into terciles
+    terciles = ["Lower", "Central", "Upper"]
+    colors = plot_settings["plot_colors"]
+    alphas = plot_settings["plot_alphas"]
+
+    tercile_masks = [tercile_vector == i for i in range(3)]
+    trials_by_tercile = [subject.trials_cents[mask] for mask in tercile_masks]
+
+    time_mask = (subject.taxis >= 0) & (subject.taxis <= 0.200)
+
+    axis = figure.get_axes()[0]
+    trial_count = 0
+    axis.set_title(f"{subject.name}: {subject.trials_cents.shape[0]} pitch tracks")
+    axis.set_ylabel("Pitch (cents)")
+    axis.set_xlabel("Time (s)")
+
+    for tercile_index in range(3):
+        tercile = terciles[tercile_index]
+        trials = subject.trials_cents[tercile_vector == tercile_index]
+        for trial in trials:
+            plt.plot(subject.taxis[time_mask], trial[time_mask], color=colors[tercile_index],
+                     alpha=alphas["trial"][tercile_index])
+
+        average_trial = np.mean(trials, axis=0)
+        assert average_trial.shape == subject.taxis.shape
+        # standard error of the average trial
+        error_trial = np.std(trials, axis=0) / np.sqrt(max(trials.shape[0], 1))
+
+        plt.plot(subject.taxis[time_mask], average_trial[time_mask],
+                 color=colors[tercile_index],
+                 alpha=alphas["mean"][tercile_index])
+        plt.fill_between(subject.taxis[time_mask],
+                         average_trial[time_mask] + error_trial[time_mask],
+                         average_trial[time_mask] - error_trial[time_mask],
+                         color=colors[tercile_index],
+                         alpha=alphas["mean"][tercile_index] * 0.8,
+                         label=f"{tercile}")
+    axis.legend()
