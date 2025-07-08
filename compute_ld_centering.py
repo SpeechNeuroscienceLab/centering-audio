@@ -32,7 +32,7 @@ def gen_centering_csv(
     # generate centering dataset (without trimming)
     for cohort_name, cohort in ld.cohorts.items():
         for subject in cohort.subjects:
-            initial_index = (subject.taxis >= 0.005) & (subject.taxis < 0.05)
+            initial_index = (subject.taxis >= 0.00) & (subject.taxis < 0.05)
             midtrial_index = (subject.taxis >= 0.150) & (subject.taxis < 0.200)
 
             subject_data = pd.DataFrame()
@@ -353,7 +353,7 @@ def gen_subject_figures(
             subject.trials_cents = 1200 * np.log2(subject.trials / window_medians)
 
             # compute the initial window means for all subjects
-            initial_mask = np.logical_and((subject.taxis < 0.05), (subject.taxis >= 0.005))
+            initial_mask = np.logical_and((subject.taxis < 0.05), (subject.taxis >= 0.00))
             initial_window_means = np.mean(subject.trials_cents[:, initial_mask], axis=1)
 
             # tercile split of the initial data
@@ -377,7 +377,7 @@ def gen_subject_figures(
             plt.xlabel("t (seconds)")
             plt.ylabel("pitch (cents)")
 
-            full_mask = np.logical_and((subject.taxis >= 0.005), (subject.taxis <= 0.200))
+            full_mask = np.logical_and((subject.taxis >= 0.00), (subject.taxis <= 0.200))
 
             for tercile in range(3):
                 tercile_trials = subject.trials_cents[tercile_masks[tercile], :]
